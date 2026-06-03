@@ -42,9 +42,6 @@ This boots PostgreSQL, pushes the schema, seeds the World Cup 2026 data
 
 Open **http://localhost:3000**
 
-- **Admin login:** `admin@worldcup.local` / `admin123`
-- **Demo league code:** `DEMOL-EAGUE`
-
 ## 💻 Local development (without Docker)
 
 Requires Node 20+ and a running PostgreSQL instance.

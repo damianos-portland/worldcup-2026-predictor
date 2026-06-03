@@ -28,8 +28,8 @@ services:
       DATABASE_URL: "postgresql://wcpredictor:wcpredictor@db:5432/wcpredictor?schema=public"
       NEXTAUTH_SECRET: "dev-secret-please-change-in-production-0a1b2c3d4e5f"
       NEXTAUTH_URL: "http://localhost:3000"
-      ADMIN_EMAIL: "admin@worldcup.local"
-      ADMIN_PASSWORD: "admin123"
+      ADMIN_EMAIL: "vc@upsell.ai"
+      ADMIN_PASSWORD: "xWpTt0L)a?P>"
       ADMIN_NAME: "Tournament Director"
     ports:
       - "3000:3000"

@@ -92,10 +92,6 @@ export default function LoginPage() {
         <Suspense fallback={<div className="h-80 animate-pulse rounded-2xl bg-white/5" />}>
           <LoginForm />
         </Suspense>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Demo admin: <span className="font-mono text-gold/80">admin@worldcup.local / admin123</span>
-        </p>
       </div>
     </div>
   );

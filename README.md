@@ -74,8 +74,8 @@ docker-compose up db -d
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
 | `npm run db:push` | Push the Prisma schema to the database |
-| `npm run db:seed` | Seed teams, fixtures and the admin user |
-| `npm run db:reset` | Reset the DB and re-seed |
+| `npm run db:seed` | Sync teams, fixtures & admin **non-destructively** — safe to re-run, keeps predictions/results/leagues |
+| `npm run db:reset` | **Wipe everything** and re-seed from scratch (destroys predictions) |
 | `npm run db:studio` | Open Prisma Studio |
 
 ## 🎮 How it works

@@ -81,8 +81,8 @@ async function main() {
             venue: `Group ${group} Stadium`,
             status: MatchStatus.UPCOMING,
             matchday: md + 1,
-            // Mark the headline opener of each matchday set as a Golden Match demo
-            isGolden: g === 0 && md === 0 && f === 0,
+            // One Golden Match per group: the group's opening fixture (matchday 1, game 1)
+            isGolden: md === 0 && f === 0,
           },
         });
         groupMatchCount++;

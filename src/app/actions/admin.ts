@@ -85,11 +85,12 @@ export async function markGoldenMatch(formData: FormData) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return { error: "Match not found." };
 
-  // clear other golden matches in the same round, set this one
-  await prisma.match.updateMany({
-    where: { round: match.round, isGolden: true },
-    data: { isGolden: false },
-  });
+  // Group stage → one Golden Match per group. Knockouts → one per round.
+  const scope =
+    match.phase === "GROUP" && match.group
+      ? { phase: "GROUP" as const, group: match.group, isGolden: true }
+      : { round: match.round, isGolden: true };
+  await prisma.match.updateMany({ where: scope, data: { isGolden: false } });
   await prisma.match.update({ where: { id: matchId }, data: { isGolden: true } });
   await recalcAllLeagues();
   revalidatePath("/admin");

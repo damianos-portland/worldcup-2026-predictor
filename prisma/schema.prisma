@@ -1,0 +1,249 @@
+// World Cup 2026 Predictor League — data model
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum Phase {
+  GROUP
+  KNOCKOUT
+  FINISHED
+}
+
+enum MatchStatus {
+  UPCOMING
+  LOCKED
+  FINISHED
+}
+
+// Group stage + every knockout round
+enum RoundType {
+  GROUP
+  ROUND_OF_32
+  ROUND_OF_16
+  QUARTER_FINAL
+  SEMI_FINAL
+  THIRD_PLACE
+  FINAL
+}
+
+enum NotificationType {
+  PREDICTION_SUBMITTED
+  PREDICTIONS_LOCKED
+  RANKING_UPDATE
+  BONUS_EARNED
+  PHASE_TWO_OPENED
+  TOURNAMENT_COMPLETED
+  GENERIC
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(MEMBER)
+  createdAt    DateTime @default(now())
+
+  memberships   Membership[]
+  notifications Notification[]
+}
+
+// ---------------------------------------------------------------------------
+// Tournament structure (global — shared by every league)
+// ---------------------------------------------------------------------------
+model NationalTeam {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  code      String // ISO-ish code used to render the flag emoji
+  group     String? // A..L for the group stage
+  eliminated Boolean @default(false)
+
+  players       Player[]
+  homeMatches   Match[]               @relation("HomeTeam")
+  awayMatches   Match[]               @relation("AwayTeam")
+  winnerPicks   TournamentWinnerPick[]
+}
+
+model Player {
+  id             String  @id @default(cuid())
+  name           String
+  nationalTeamId String
+  nationalTeam   NationalTeam @relation(fields: [nationalTeamId], references: [id], onDelete: Cascade)
+  goals          Int     @default(0)
+  isTopScorer    Boolean @default(false)
+
+  topScorerPicks TopScorerPick[]
+
+  @@unique([name, nationalTeamId])
+}
+
+model Match {
+  id         String      @id @default(cuid())
+  round      RoundType
+  phase      Phase
+  group      String?
+  slot       String? // e.g. "Winner Group A vs Runner-up Group B" for knockout placeholders
+  homeTeamId String?
+  awayTeamId String?
+  homeTeam   NationalTeam? @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   NationalTeam? @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  kickoff    DateTime
+  venue      String?
+  status     MatchStatus @default(UPCOMING)
+  homeScore  Int?
+  awayScore  Int?
+  isGolden   Boolean     @default(false)
+  matchday   Int         @default(1)
+
+  predictions Prediction[]
+}
+
+// ---------------------------------------------------------------------------
+// Leagues
+// ---------------------------------------------------------------------------
+model League {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique // XXXXX-XXXXX
+  season    String   @default("2026")
+  phase     Phase    @default(GROUP)
+  groupLocked   Boolean @default(false)
+  knockoutOpen  Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  // Scoring config (overridable per league)
+  exactPoints       Int @default(10)
+  outcomePoints     Int @default(3)
+  winnerBonus       Int @default(30)
+  topScorerBonus    Int @default(25)
+
+  memberships Membership[]
+}
+
+// A user's participation in one league (their fantasy "Team")
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  leagueId  String
+  teamName  String
+  joinedAt  DateTime @default(now())
+
+  // Leaderboard cache
+  totalPoints   Int @default(0)
+  currentRank   Int @default(0)
+  previousRank  Int @default(0)
+
+  // Joker availability (one per phase)
+  groupJokerUsed     Boolean @default(false)
+  knockoutJokerUsed  Boolean @default(false)
+
+  // Replacement allowances (knockout)
+  winnerReplaced     Boolean @default(false)
+  topScorerReplaced  Boolean @default(false)
+
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  league      League  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  predictions   Prediction[]
+  winnerPick    TournamentWinnerPick?
+  topScorerPick TopScorerPick?
+  achievements  Achievement[]
+
+  @@unique([userId, leagueId])
+  @@unique([leagueId, teamName])
+}
+
+model Prediction {
+  id           String  @id @default(cuid())
+  membershipId String
+  matchId      String
+  homeScore    Int
+  awayScore    Int
+  jokerUsed    Boolean @default(false)
+  // cached scoring breakdown
+  points       Int     @default(0)
+  isExact      Boolean @default(false)
+  isOutcome    Boolean @default(false)
+  scored       Boolean @default(false)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  match      Match      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, matchId])
+}
+
+model TournamentWinnerPick {
+  id             String  @id @default(cuid())
+  membershipId   String  @unique
+  nationalTeamId String
+  isReplacement  Boolean @default(false)
+  awarded        Boolean @default(false)
+
+  membership   Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  nationalTeam NationalTeam @relation(fields: [nationalTeamId], references: [id])
+}
+
+model TopScorerPick {
+  id            String  @id @default(cuid())
+  membershipId  String  @unique
+  playerId      String
+  isReplacement Boolean @default(false)
+  awarded       Boolean @default(false)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  player     Player     @relation(fields: [playerId], references: [id])
+}
+
+model Achievement {
+  id           String   @id @default(cuid())
+  membershipId String
+  type         String // matches a key in lib/achievements
+  unlockedAt   DateTime @default(now())
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, type])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType @default(GENERIC)
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HallOfFame {
+  id           String @id @default(cuid())
+  leagueName   String
+  season       String
+  winnerTeam   String
+  winnerName   String
+  winnerPoints Int
+  runnerUp     String?
+  createdAt    DateTime @default(now())
+}
+
+// Global key/value admin settings (singleton-ish)
+model AdminSettings {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}

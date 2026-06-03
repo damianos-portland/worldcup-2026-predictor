@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 5%;
+    --foreground: 40 30% 96%;
+    --card: 222 40% 9%;
+    --card-foreground: 40 30% 96%;
+    --primary: 43 89% 64%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 222 30% 16%;
+    --secondary-foreground: 40 30% 96%;
+    --muted: 222 25% 18%;
+    --muted-foreground: 220 12% 62%;
+    --accent: 43 89% 64%;
+    --accent-foreground: 222 47% 8%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 30% 96%;
+    --border: 222 30% 18%;
+    --input: 222 30% 16%;
+    --ring: 43 89% 64%;
+    --radius: 0.85rem;
+  }
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  min-height: 100vh;
+  background-image:
+    radial-gradient(900px circle at 12% -5%, rgba(245, 196, 81, 0.10), transparent 45%),
+    radial-gradient(700px circle at 100% 0%, rgba(56, 89, 200, 0.16), transparent 40%),
+    radial-gradient(1000px circle at 50% 110%, rgba(245, 196, 81, 0.06), transparent 45%);
+  background-attachment: fixed;
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/10 bg-white/[0.035] backdrop-blur-xl;
+  }
+  .glass-strong {
+    @apply border border-white/10 bg-white/[0.06] backdrop-blur-2xl;
+  }
+  .gold-text {
+    @apply bg-gradient-to-br from-gold-100 via-gold to-gold-600 bg-clip-text text-transparent;
+  }
+  .gold-border {
+    @apply border border-gold/40;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[0_8px_40px_-12px_rgba(245,196,81,0.35)];
+  }
+  .btn-gold {
+    @apply bg-gradient-to-b from-gold-300 to-gold-500 text-pitch-900 font-semibold shadow-[0_4px_20px_-4px_rgba(245,196,81,0.6)];
+  }
+  .stat-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-[0.2em] text-gold/80;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted));
+}
+
+.bracket-line {
+  background-image: linear-gradient(to right, rgba(245, 196, 81, 0.4), transparent);
+}

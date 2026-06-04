@@ -47,6 +47,8 @@ async function fetchJson(path: string, attempt = 0): Promise<any> {
 
 export type SofaEvent = {
   id: number;
+  slug: string;
+  customId: string;
   home: string;
   away: string;
   homeScore: number | null;
@@ -59,6 +61,8 @@ export type SofaEvent = {
 function mapEvent(e: any): SofaEvent {
   return {
     id: e.id,
+    slug: e.slug ?? "",
+    customId: e.customId ?? "",
     home: e.homeTeam?.name ?? "",
     away: e.awayTeam?.name ?? "",
     homeScore: e.homeScore?.current ?? null,
@@ -67,6 +71,11 @@ function mapEvent(e: any): SofaEvent {
     statusDesc: e.status?.description ?? null,
     startTimestamp: e.startTimestamp ?? null,
   };
+}
+
+/** Build the Sofascore www match URL the Apify actor expects. */
+export function matchUrl(slug: string, customId: string): string {
+  return `https://www.sofascore.com/football/match/${slug}/${customId}`;
 }
 
 export async function getLiveEvents(): Promise<SofaEvent[]> {

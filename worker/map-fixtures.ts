@@ -2,7 +2,7 @@
 // Run at tournament start, and again after each knockout draw fills in teams.
 //   npm run worker:map
 import { prisma } from "../src/lib/prisma";
-import { getSeasonFixtures } from "./sofascore";
+import { getSeasonFixtures, matchUrl } from "./sofascore";
 import { pairKey } from "./normalize";
 
 const TOURNAMENT_ID = parseInt(process.env.WC_TOURNAMENT_ID || "16", 10);
@@ -26,7 +26,10 @@ async function main() {
     }
     const f = byPair.get(pairKey(m.homeTeam.name, m.awayTeam.name));
     if (f) {
-      await prisma.match.update({ where: { id: m.id }, data: { sourceEventId: String(f.id) } });
+      await prisma.match.update({
+        where: { id: m.id },
+        data: { sourceEventId: String(f.id), sourceUrl: matchUrl(f.slug, f.customId) },
+      });
       mapped++;
     } else {
       misses.push(`${m.homeTeam.name} vs ${m.awayTeam.name}`);

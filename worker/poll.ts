@@ -1,95 +1,66 @@
-// Live poller: every ~25s, sync in-progress matches from Sofascore into our DB
-// (score + minute + goal/card ticker) and finalize matches at full-time.
+// Live poller: every ~25s, sync in-progress matches into our DB (score + minute
+// + goal/card ticker) and finalize them at full-time. Transport-agnostic — set
+// SOFA_TRANSPORT=apify (recommended for production) or =direct (residential/local).
 //   npm run worker:poll
 import { prisma } from "../src/lib/prisma";
 import { finalizeMatch } from "../src/lib/results";
-import { getLiveEvents, getEvent, getIncidents } from "./sofascore";
+import { pollMatches } from "./transport";
 
 const INTERVAL = parseInt(process.env.POLL_INTERVAL_MS || "25000", 10);
+const TRANSPORT = process.env.SOFA_TRANSPORT || "direct";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function mapIncident(inc: any): { type: string; side: string; player: string | null; minute: string | null } | null {
-  const side = inc.isHome ? "HOME" : "AWAY";
-  const minute = inc.time != null ? `${inc.time}'` : null;
-  const player = inc.player?.name ?? null;
-  if (inc.incidentType === "goal") {
-    let type = "GOAL";
-    if (inc.incidentClass === "ownGoal") type = "OWN_GOAL";
-    else if (inc.incidentClass === "penalty") type = "PENALTY";
-    return { type, side, player, minute };
-  }
-  if (inc.incidentType === "card") {
-    const type = inc.incidentClass === "red" || inc.incidentClass === "yellowRed" ? "RED_CARD" : "YELLOW_CARD";
-    return { type, side, player, minute };
-  }
-  return null;
-}
-
-async function syncIncidents(matchId: string, eventId: string) {
-  let incidents: any[] = [];
-  try {
-    incidents = await getIncidents(eventId);
-  } catch {
-    return;
-  }
-  let order = 0;
-  for (const inc of incidents) {
-    order++;
-    const mapped = mapIncident(inc);
-    if (!mapped) continue;
-    const sourceKey = `${inc.incidentType}-${inc.time ?? ""}-${inc.isHome ? "H" : "A"}-${mapped.player ?? mapped.type}`;
-    await prisma.matchEvent.upsert({
-      where: { matchId_sourceKey: { matchId, sourceKey } },
-      update: { type: mapped.type as any, side: mapped.side as any, player: mapped.player, minute: mapped.minute },
-      create: {
-        matchId,
-        sourceKey,
-        type: mapped.type as any,
-        side: mapped.side as any,
-        player: mapped.player,
-        minute: mapped.minute,
-        sortKey: inc.time ?? order,
-      },
-    });
-  }
-}
-
 async function tick() {
-  const live = await getLiveEvents();
-  const liveById = new Map(live.map((e) => [String(e.id), e]));
-
-  const matches = await prisma.match.findMany({
-    where: { sourceEventId: { not: null }, status: { not: "FINISHED" } },
+  const now = Date.now();
+  // Only matches mapped to a source, not yet finished, within their live window.
+  const candidates = await prisma.match.findMany({
+    where: {
+      sourceEventId: { not: null },
+      status: { not: "FINISHED" },
+      kickoff: { lte: new Date(now + 5 * 60_000), gte: new Date(now - 6 * 3_600_000) },
+    },
+    select: { id: true, sourceEventId: true, sourceUrl: true },
   });
+  if (!candidates.length) return;
 
-  for (const m of matches) {
-    const ev = m.sourceEventId ? liveById.get(m.sourceEventId) : undefined;
+  const updates = await pollMatches(candidates);
 
-    if (ev && ev.statusType === "inprogress") {
+  for (const u of updates) {
+    if (u.finished && u.homeScore != null && u.awayScore != null) {
+      console.log(`🏁  Finalizing ${u.matchId}: ${u.homeScore}-${u.awayScore}`);
+      await finalizeMatch(u.matchId, u.homeScore, u.awayScore);
+    } else if (u.inProgress) {
       await prisma.match.update({
-        where: { id: m.id },
+        where: { id: u.matchId },
         data: {
           status: "LIVE",
-          liveHomeScore: ev.homeScore ?? 0,
-          liveAwayScore: ev.awayScore ?? 0,
-          minute: ev.statusDesc ?? null,
+          liveHomeScore: u.homeScore ?? 0,
+          liveAwayScore: u.awayScore ?? 0,
+          minute: u.minute,
           lastLiveUpdate: new Date(),
         },
       });
-      await syncIncidents(m.id, m.sourceEventId!);
-    } else if (m.status === "LIVE") {
-      // Was live, no longer in the live feed → check if it finished.
-      const detail = await getEvent(m.sourceEventId!).catch(() => null);
-      if (detail && detail.statusType === "finished" && detail.homeScore != null && detail.awayScore != null) {
-        console.log(`🏁  Finalizing ${m.id}: ${detail.home} ${detail.homeScore}-${detail.awayScore} ${detail.away}`);
-        await finalizeMatch(m.id, detail.homeScore, detail.awayScore);
+      for (const e of u.incidents) {
+        await prisma.matchEvent.upsert({
+          where: { matchId_sourceKey: { matchId: u.matchId, sourceKey: e.sourceKey } },
+          update: { type: e.type as any, side: e.side as any, player: e.player, minute: e.minute },
+          create: {
+            matchId: u.matchId,
+            sourceKey: e.sourceKey,
+            type: e.type as any,
+            side: e.side as any,
+            player: e.player,
+            minute: e.minute,
+            sortKey: parseInt(e.minute || "0", 10) || 0,
+          },
+        });
       }
     }
   }
 }
 
 async function loop() {
-  console.log(`📡  Live poller started (every ${INTERVAL / 1000}s). Watching mapped fixtures…`);
+  console.log(`📡  Live poller started (transport=${TRANSPORT}, every ${INTERVAL / 1000}s).`);
   // eslint-disable-next-line no-constant-condition
   while (true) {
     try {

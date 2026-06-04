@@ -24,12 +24,16 @@ SOFA_PROXY_URL=http://groups-RESIDENTIAL:<APIFY_PROXY_PASSWORD>@proxy.apify.com:
 ```
 (Any residential proxy provider works. Plain datacenter proxies will still be blocked.)
 
-### Option B — Apify Sofascore actor (most robust, free, maintained)
+### Option B — Apify Sofascore actor (recommended for production) ✅ built-in
 The free **`azzouzana/sofascore-scraper-pro`** actor scrapes Sofascore (handling
-Cloudflare itself) and returns the same `event` + `incidents` data. Run it on an
-Apify schedule, or call it from the worker with your `APIFY_TOKEN`. Use this if a
-residential proxy still gets challenged. (Wiring this transport in is a small
-follow-up — ask and it can be added behind a `SOFA_TRANSPORT=apify` switch.)
+Cloudflare itself) and returns the same `event` + `incidents` data. It's wired in:
+set these and the poller routes every request through Apify:
+```
+SOFA_TRANSPORT=apify
+APIFY_TOKEN=<your Apify API token>
+```
+This works from any datacenter host (Render/Railway). Each poll cycle is a single
+synchronous actor run covering all in-progress matches at once.
 
 > Local dev / residential home IPs are **not** blocked, so `worker:map` and
 > `worker:poll` work directly from your machine for testing.
@@ -39,9 +43,17 @@ follow-up — ask and it can be added behind a `SOFA_TRANSPORT=apify` switch.)
 |---|---|---|
 | `DATABASE_URL` | — | **Required.** Same Neon DB as the app. |
 | `POLL_INTERVAL_MS` | `25000` | Poll cadence in ms. |
-| `SOFA_PROXY_URL` | — | Residential proxy (see Option A). |
+| `SOFA_TRANSPORT` | `direct` | `apify` (recommended prod) or `direct`. |
+| `APIFY_TOKEN` | — | Required when `SOFA_TRANSPORT=apify`. |
+| `SOFA_ACTOR` | `azzouzana~sofascore-scraper-pro` | Apify actor to use. |
+| `SOFA_PROXY_URL` | — | Residential proxy for `direct` mode (Option A). |
 | `WC_TOURNAMENT_ID` | `16` | Sofascore FIFA World Cup id. |
 | `WC_SEASON_ID` | `58210` | Sofascore 2026 season id. |
+
+> **Mapping note:** `worker:map` uses the *direct* client (Sofascore's season
+> fixtures endpoint), so run it from a residential IP (your Mac) or with
+> `SOFA_PROXY_URL` set. The always-on `worker:poll` then runs with
+> `SOFA_TRANSPORT=apify` on your server.
 
 ## Deploy on Render (background worker)
 1. New → **Background Worker**, point at this repo.

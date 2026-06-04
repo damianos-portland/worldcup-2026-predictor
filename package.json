@@ -11,7 +11,9 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "worker:map": "tsx worker/map-fixtures.ts",
+    "worker:poll": "tsx worker/poll.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -28,6 +30,7 @@
     "react-dom": "18.3.1",
     "tailwind-merge": "2.5.4",
     "tailwindcss-animate": "1.0.7",
+    "undici": "^6.21.0",
     "zod": "3.23.8"
   },
   "devDependencies": {

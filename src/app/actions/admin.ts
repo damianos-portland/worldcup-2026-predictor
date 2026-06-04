@@ -237,6 +237,28 @@ export async function setLeaguePhase(formData: FormData) {
   return { success: true };
 }
 
+/** Update a league's scoring configuration, then recalculate it. */
+export async function updateLeagueScoring(formData: FormData) {
+  await requireAdmin();
+  const leagueId = formData.get("leagueId") as string;
+  const num = (k: string, fallback: number) => {
+    const v = parseInt(formData.get(k) as string, 10);
+    return Number.isNaN(v) || v < 0 ? fallback : v;
+  };
+  await prisma.league.update({
+    where: { id: leagueId },
+    data: {
+      exactPoints: num("exactPoints", 10),
+      outcomePoints: num("outcomePoints", 3),
+      winnerBonus: num("winnerBonus", 30),
+      topScorerBonus: num("topScorerBonus", 25),
+    },
+  });
+  await recalculateLeague(leagueId);
+  revalidatePath("/admin/leagues");
+  return { success: true };
+}
+
 /** Force a full recalculation (handy after manual fixes). */
 export async function recalcLeagueAction(formData: FormData) {
   await requireAdmin();

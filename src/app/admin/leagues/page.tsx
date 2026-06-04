@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { setLeaguePhase, recalcLeagueAction } from "@/app/actions/admin";
 import { CreateLeague } from "@/components/admin/create-league";
 import { ActionButton } from "@/components/admin/action-button";
+import { LeagueScoringForm } from "@/components/admin/league-scoring-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -96,6 +97,16 @@ export default async function AdminLeagues() {
                   ))}
                 </div>
               )}
+
+              <LeagueScoringForm
+                leagueId={l.id}
+                cfg={{
+                  exactPoints: l.exactPoints,
+                  outcomePoints: l.outcomePoints,
+                  winnerBonus: l.winnerBonus,
+                  topScorerBonus: l.topScorerBonus,
+                }}
+              />
             </CardContent>
           </Card>
         ))}

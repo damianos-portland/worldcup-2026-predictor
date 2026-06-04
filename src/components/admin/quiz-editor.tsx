@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2, Check, Lock, Unlock, GraduationCap, RotateCcw } from "lucide-react";
 import {
-  addQuizQuestion, deleteQuizQuestion, setCorrectAnswer, setQuizOpen, gradeQuiz, ungradeQuiz,
+  addQuizQuestion, deleteQuizQuestion, deleteQuiz, setCorrectAnswer, setQuizOpen, gradeQuiz, ungradeQuiz,
 } from "@/app/actions/quiz";
+import { QUESTION_TEMPLATES, generateQuestion, type QuizMatch } from "@/lib/quiz-templates";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -15,22 +16,44 @@ type Quiz = {
   questions: Question[]; answerCount: number;
 };
 
-export function QuizEditor({ quiz }: { quiz: Quiz }) {
+export function QuizEditor({ quiz, matches }: { quiz: Quiz; matches: QuizMatch[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [text, setText] = useState("");
-  const [options, setOptions] = useState("");
+
+  // guided builder state
+  const [matchId, setMatchId] = useState(matches[0]?.id ?? "");
+  const [template, setTemplate] = useState("RESULT");
+  const [customText, setCustomText] = useState("");
+  const [customOptions, setCustomOptions] = useState("");
+
+  const selectedMatch = matches.find((m) => m.id === matchId);
+  const preview =
+    template !== "CUSTOM" && selectedMatch ? generateQuestion(template, selectedMatch) : null;
 
   function run(fn: () => Promise<any>) {
     start(async () => { await fn(); router.refresh(); });
   }
 
-  function addQuestion() {
-    if (!text.trim() || options.split("\n").filter((o) => o.trim()).length < 2) return;
+  function addGenerated() {
+    let text = "";
+    let optionsStr = "";
+    if (template === "CUSTOM") {
+      if (!customText.trim() || customOptions.split("\n").filter((o) => o.trim()).length < 2) return;
+      text = customText;
+      optionsStr = customOptions;
+    } else if (preview) {
+      text = preview.text;
+      optionsStr = preview.options.join("\n");
+    } else return;
+
     const fd = new FormData();
-    fd.set("quizId", quiz.id); fd.set("text", text); fd.set("options", options);
-    run(async () => { await addQuizQuestion(fd); setText(""); setOptions(""); });
+    fd.set("quizId", quiz.id);
+    fd.set("text", text);
+    fd.set("options", optionsStr);
+    run(async () => { await addQuizQuestion(fd); setCustomText(""); setCustomOptions(""); });
   }
+
+  const selectClass = "h-9 rounded-lg border border-input bg-black/30 px-2 text-sm focus-visible:outline-none";
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
@@ -60,6 +83,12 @@ export function QuizEditor({ quiz }: { quiz: Quiz }) {
               <GraduationCap className="h-3 w-3" /> Grade
             </button>
           )}
+          <button
+            onClick={() => { if (confirm(`Delete "${quiz.title}" and all its questions/answers?`)) { const fd = new FormData(); fd.set("quizId", quiz.id); run(() => deleteQuiz(fd)); } }}
+            disabled={pending}
+            className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-300 hover:bg-red-500/20">
+            <Trash2 className="h-3 w-3" /> Delete
+          </button>
         </div>
       </div>
 
@@ -88,15 +117,45 @@ export function QuizEditor({ quiz }: { quiz: Quiz }) {
         ))}
       </div>
 
-      {/* Add question */}
+      {/* Guided question builder */}
       {!quiz.isGraded && (
         <div className="mt-3 space-y-2 rounded-xl border border-dashed border-white/10 p-3">
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Question, e.g. Who wins Brazil vs Morocco?"
-            className="h-9 w-full rounded-lg border border-input bg-black/30 px-3 text-sm focus-visible:outline-none" />
-          <textarea value={options} onChange={(e) => setOptions(e.target.value)} placeholder={"One option per line\nBrazil\nDraw\nMorocco"} rows={3}
-            className="w-full rounded-lg border border-input bg-black/30 px-3 py-2 text-sm focus-visible:outline-none" />
-          <button onClick={addQuestion} disabled={pending}
-            className="flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20">
+          <div className="flex flex-wrap gap-2">
+            <select value={template} onChange={(e) => setTemplate(e.target.value)} className={selectClass}>
+              {QUESTION_TEMPLATES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+            {template !== "CUSTOM" && (
+              <select value={matchId} onChange={(e) => setMatchId(e.target.value)} className={cn(selectClass, "flex-1 min-w-[180px]")}>
+                {matches.length === 0 && <option value="">No matches with teams yet</option>}
+                {matches.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            )}
+          </div>
+
+          {template !== "CUSTOM" ? (
+            preview ? (
+              <div className="rounded-lg border border-white/5 bg-black/20 p-2.5">
+                <div className="text-sm font-medium">{preview.text}</div>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {preview.options.map((o, i) => (
+                    <span key={i} className="rounded-md border border-white/10 px-1.5 py-0.5 text-xs text-muted-foreground">{o}</span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Pick a match to preview the question.</p>
+            )
+          ) : (
+            <>
+              <input value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Custom question text"
+                className="h-9 w-full rounded-lg border border-input bg-black/30 px-3 text-sm focus-visible:outline-none" />
+              <textarea value={customOptions} onChange={(e) => setCustomOptions(e.target.value)} placeholder={"One option per line"} rows={3}
+                className="w-full rounded-lg border border-input bg-black/30 px-3 py-2 text-sm focus-visible:outline-none" />
+            </>
+          )}
+
+          <button onClick={addGenerated} disabled={pending || (template !== "CUSTOM" && !preview)}
+            className="flex items-center gap-1 rounded-lg btn-gold px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
             {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Add question
           </button>
         </div>

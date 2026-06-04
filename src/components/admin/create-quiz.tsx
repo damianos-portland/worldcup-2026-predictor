@@ -13,6 +13,7 @@ const MATCHDAYS = [
   { key: "KO-ROUND_OF_16", label: "Round of 16" },
   { key: "KO-QUARTER_FINAL", label: "Quarter Finals" },
   { key: "KO-SEMI_FINAL", label: "Semi Finals" },
+  { key: "KO-THIRD_PLACE", label: "Third Place" },
   { key: "KO-FINAL", label: "Final" },
 ];
 

@@ -3,16 +3,40 @@ import { prisma } from "@/lib/prisma";
 import { CreateQuiz } from "@/components/admin/create-quiz";
 import { QuizEditor } from "@/components/admin/quiz-editor";
 import { Card, CardContent } from "@/components/ui/card";
+import { matchdayKey } from "@/lib/matchday";
+import type { QuizMatch } from "@/lib/quiz-templates";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminQuizPage() {
-  const quizzes = await prisma.quiz.findMany({
-    orderBy: { matchdayKey: "asc" },
-    include: {
-      questions: { orderBy: { order: "asc" } },
-    },
-  });
+  const [quizzes, matches] = await Promise.all([
+    prisma.quiz.findMany({
+      orderBy: { matchdayKey: "asc" },
+      include: { questions: { orderBy: { order: "asc" } } },
+    }),
+    prisma.match.findMany({
+      include: {
+        homeTeam: { include: { players: true } },
+        awayTeam: { include: { players: true } },
+      },
+    }),
+  ]);
+
+  // Group matches (that have both teams) by matchday key for the question builder.
+  const matchesByKey = new Map<string, QuizMatch[]>();
+  for (const m of matches) {
+    if (!m.homeTeam || !m.awayTeam) continue;
+    const key = matchdayKey(m);
+    if (!matchesByKey.has(key)) matchesByKey.set(key, []);
+    matchesByKey.get(key)!.push({
+      id: m.id,
+      label: `${m.homeTeam.name} vs ${m.awayTeam.name}`,
+      home: m.homeTeam.name,
+      away: m.awayTeam.name,
+      homePlayers: m.homeTeam.players.map((p) => p.name),
+      awayPlayers: m.awayTeam.players.map((p) => p.name),
+    });
+  }
 
   // answer counts per quiz
   const counts = await Promise.all(
@@ -44,6 +68,7 @@ export default async function AdminQuizPage() {
           {quizzes.map((q, i) => (
             <QuizEditor
               key={q.id}
+              matches={matchesByKey.get(q.matchdayKey) ?? []}
               quiz={{
                 id: q.id,
                 title: q.title,

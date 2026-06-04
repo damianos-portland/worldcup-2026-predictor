@@ -48,6 +48,16 @@ export async function deleteQuizQuestion(formData: FormData) {
   return { success: true };
 }
 
+export async function deleteQuiz(formData: FormData) {
+  await requireAdmin();
+  const quizId = formData.get("quizId") as string;
+  const wasGraded = (await prisma.quiz.findUnique({ where: { id: quizId } }))?.isGraded;
+  await prisma.quiz.delete({ where: { id: quizId } }); // cascades questions + answers
+  if (wasGraded) await recalcAllLeagues(); // its points no longer count
+  revalidatePath("/admin/quiz");
+  return { success: true };
+}
+
 export async function setCorrectAnswer(formData: FormData) {
   await requireAdmin();
   const questionId = formData.get("questionId") as string;

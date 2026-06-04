@@ -269,9 +269,16 @@ export default async function HomePage() {
       </section>
 
       <footer className="border-t border-white/5 py-8">
-        <div className="container text-center text-xs text-muted-foreground">
-          World Cup 2026 Predictor League · Built with Next.js, Prisma & PostgreSQL ·
-          100% free & self-hostable
+        <div className="container flex flex-col items-center gap-3 text-center">
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+            <Link href="/rules" className="text-muted-foreground transition-colors hover:text-gold">Game Rules</Link>
+            <Link href="/leagues" className="text-muted-foreground transition-colors hover:text-gold">Join a League</Link>
+            <Link href="/login" className="text-muted-foreground transition-colors hover:text-gold">Log in</Link>
+          </nav>
+          <p className="text-xs text-muted-foreground">
+            World Cup 2026 Predictor League · Built with Next.js, Prisma & PostgreSQL ·
+            100% free &amp; self-hostable
+          </p>
         </div>
       </footer>
     </div>

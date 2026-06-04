@@ -1,9 +1,20 @@
-// A "matchday" is a CALENDAR DAY of fixtures — e.g. all matches on 11 June are
-// one matchday, 12 June is the next. Power Pick, Manager of the Matchday, the
-// Matchday Quiz and H2H all group fixtures by this date key (UTC).
+// A "matchday" is a CALENDAR DAY of fixtures in the host (US) timezone — e.g.
+// all matches on 11 June (US Eastern) are one matchday. Using the local US date
+// matters because a 9pm ET kickoff is ~01:00 UTC the next day; we still want it
+// counted on its US date. Timezone is configurable via MATCHDAY_TZ.
+
+const TZ = process.env.MATCHDAY_TZ || "America/New_York";
+
+// en-CA formats as YYYY-MM-DD; with timeZone it gives the local calendar date.
+const keyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 export function matchdayKey(m: { kickoff: Date }): string {
-  return m.kickoff.toISOString().slice(0, 10); // YYYY-MM-DD
+  return keyFormatter.format(m.kickoff); // e.g. "2026-06-11"
 }
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -12,14 +23,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function matchdayLabel(key: string): string {
   const [y, mo, d] = key.split("-").map(Number);
   if (!y || !mo || !d) return key;
+  // Weekday of that calendar date (date-only, timezone-independent).
   const date = new Date(Date.UTC(y, mo - 1, d));
   return `${DAYS[date.getUTCDay()]} ${d} ${MONTHS[mo - 1]} ${y}`;
-}
-
-/** UTC [start, end) range for the calendar day a kickoff falls on. */
-export function dayRange(kickoff: Date): { start: Date; end: Date } {
-  const start = new Date(Date.UTC(kickoff.getUTCFullYear(), kickoff.getUTCMonth(), kickoff.getUTCDate()));
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 1);
-  return { start, end };
 }

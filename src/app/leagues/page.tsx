@@ -10,8 +10,9 @@ import { ROUND_LABELS } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function LeaguesPage() {
+export default async function LeaguesPage({ searchParams }: { searchParams: { code?: string } }) {
   const user = await requireUser();
+  const initialCode = (searchParams.code ?? "").toUpperCase();
 
   const memberships = await prisma.membership.findMany({
     where: { userId: user.id },
@@ -125,7 +126,7 @@ export default async function LeaguesPage() {
                 <p className="mb-5 text-sm text-muted-foreground">
                   Enter the code your admin shared with you.
                 </p>
-                <JoinLeagueForm />
+                <JoinLeagueForm initialCode={initialCode} />
               </CardContent>
             </Card>
           </div>

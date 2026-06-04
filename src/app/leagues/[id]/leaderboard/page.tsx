@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getMembershipOrRedirect } from "@/lib/league-access";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flag } from "@/components/flag";
+import { SharePodium } from "@/components/share-podium";
 import { classNamesForMovement } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,11 @@ export default async function LeaderboardPage({ params }: { params: { id: string
 
   return (
     <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h1 className="font-display text-xl font-bold">Standings</h1>
+        <SharePodium leagueId={league.id} />
+      </div>
+
       {/* Podium */}
       {podium.length > 0 && (
         <div className="grid grid-cols-3 items-end gap-3 sm:gap-6">

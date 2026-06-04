@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function JoinLeagueForm() {
+export function JoinLeagueForm({ initialCode = "" }: { initialCode?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -36,6 +36,7 @@ export function JoinLeagueForm() {
         <Input
           id="code"
           name="code"
+          defaultValue={initialCode}
           placeholder="ABCDE-FGHIJ"
           className="font-mono uppercase tracking-widest"
           maxLength={11}

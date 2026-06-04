@@ -4,6 +4,7 @@ import { setLeaguePhase, recalcLeagueAction } from "@/app/actions/admin";
 import { CreateLeague } from "@/components/admin/create-league";
 import { ActionButton } from "@/components/admin/action-button";
 import { LeagueScoringForm } from "@/components/admin/league-scoring-form";
+import { CopyInvite } from "@/components/admin/copy-invite";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -41,6 +42,7 @@ export default async function AdminLeagues() {
                     <h3 className="font-display text-lg font-bold">{l.name}</h3>
                     <Badge variant="secondary" className="font-mono">{l.code}</Badge>
                     <Badge variant={l.phase === "FINISHED" ? "success" : "default"}>{l.phase}</Badge>
+                    <CopyInvite code={l.code} />
                   </div>
                   <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {l._count.memberships} managers</span>

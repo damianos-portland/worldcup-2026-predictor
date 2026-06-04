@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { dayRange } from "@/lib/matchday";
 
 async function memberOrThrow(leagueId: string) {
   const user = await requireUser();
@@ -114,13 +115,14 @@ export async function togglePowerPick(formData: FormData) {
   if (prediction.powerPick) {
     await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: false } });
   } else {
-    // Clear any existing Power Pick in the same matchday, then set this one.
-    const siblingMatch =
-      match.phase === "GROUP"
-        ? { phase: "GROUP" as const, matchday: match.matchday }
-        : { phase: "KNOCKOUT" as const, round: match.round };
+    // Clear any existing Power Pick on the SAME calendar day, then set this one.
+    const { start, end } = dayRange(match.kickoff);
     await prisma.prediction.updateMany({
-      where: { membershipId: membership.id, powerPick: true, match: siblingMatch },
+      where: {
+        membershipId: membership.id,
+        powerPick: true,
+        match: { kickoff: { gte: start, lt: end } },
+      },
       data: { powerPick: false },
     });
     await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: true } });

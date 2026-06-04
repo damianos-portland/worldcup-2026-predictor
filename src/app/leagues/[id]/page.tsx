@@ -66,12 +66,7 @@ export default async function LeagueOverview({ params }: { params: { id: string 
 
   const move = classNamesForMovement(membership.currentRank, membership.previousRank);
 
-  // Group Manager-of-the-Matchday awards by matchday, in chronological order.
-  const KEY_ORDER = [
-    "GROUP-1", "GROUP-2", "GROUP-3",
-    "KO-ROUND_OF_32", "KO-ROUND_OF_16", "KO-QUARTER_FINAL",
-    "KO-SEMI_FINAL", "KO-THIRD_PLACE", "KO-FINAL",
-  ];
+  // Group Manager-of-the-Matchday awards by matchday (date keys sort naturally).
   const awardsByKey = new Map<string, { key: string; label: string; points: number; winners: string[] }>();
   for (const a of matchdayAwards) {
     if (!awardsByKey.has(a.matchdayKey)) {
@@ -79,9 +74,7 @@ export default async function LeagueOverview({ params }: { params: { id: string 
     }
     awardsByKey.get(a.matchdayKey)!.winners.push(a.membership.teamName);
   }
-  const orderedAwards = [...awardsByKey.values()].sort(
-    (x, y) => KEY_ORDER.indexOf(x.key) - KEY_ORDER.indexOf(y.key)
-  );
+  const orderedAwards = [...awardsByKey.values()].sort((x, y) => x.key.localeCompare(y.key));
 
   const statCards = [
     { label: "Total Points", value: membership.totalPoints, icon: Trophy },

@@ -1,12 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { matchdayKey, matchdayLabel } from "@/lib/matchday";
 
-const KEY_ORDER = [
-  "GROUP-1", "GROUP-2", "GROUP-3",
-  "KO-ROUND_OF_32", "KO-ROUND_OF_16", "KO-QUARTER_FINAL",
-  "KO-SEMI_FINAL", "KO-THIRD_PLACE", "KO-FINAL",
-];
-
 export type H2HRow = {
   membershipId: string;
   teamName: string;
@@ -59,7 +53,7 @@ export async function computeH2H(
   if (members.length < 2) return { rows: [], fixtures: [] };
 
   const matches = await prisma.match.findMany({
-    select: { id: true, phase: true, matchday: true, round: true, status: true },
+    select: { id: true, kickoff: true, status: true },
   });
   const keyInfo = new Map<string, { ids: Set<string>; allFinished: boolean }>();
   for (const mt of matches) {
@@ -84,10 +78,12 @@ export async function computeH2H(
   const fixtures: H2HFixture[] = [];
   const memberIds = members.map((m) => m.id);
 
-  const completedKeys = KEY_ORDER.filter((k) => keyInfo.get(k)?.allFinished);
+  // All matchday dates in chronological order; each is a fixed H2H "round".
+  const allKeys = [...keyInfo.keys()].sort();
+  const completedKeys = allKeys.filter((k) => keyInfo.get(k)?.allFinished);
 
   for (const key of completedKeys) {
-    const round = KEY_ORDER.indexOf(key);
+    const round = allKeys.indexOf(key);
     const ids = keyInfo.get(key)!.ids;
 
     const mp = new Map<string, number>(memberIds.map((id) => [id, 0]));

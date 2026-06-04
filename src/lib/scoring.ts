@@ -284,9 +284,9 @@ export async function recalculateLeague(leagueId: string) {
  */
 async function computeMatchdayAwards(leagueId: string) {
   const matches = await prisma.match.findMany({
-    select: { id: true, phase: true, matchday: true, round: true, status: true },
+    select: { id: true, kickoff: true, status: true },
   });
-  // Group match IDs by matchday key, tracking whether all are finished.
+  // Group match IDs by matchday (calendar day), tracking whether all are finished.
   const byKey = new Map<string, { ids: Set<string>; allFinished: boolean }>();
   for (const mt of matches) {
     const key = matchdayKey(mt);
@@ -304,12 +304,11 @@ async function computeMatchdayAwards(leagueId: string) {
     select: { membershipId: true, matchId: true, points: true },
   });
 
+  // Recompute from scratch (clears any stale keys) then recreate winners.
+  await prisma.matchdayAward.deleteMany({ where: { leagueId } });
+
   for (const [key, info] of byKey) {
-    // Award only once every match in the matchday is finished.
-    if (!info.allFinished) {
-      await prisma.matchdayAward.deleteMany({ where: { leagueId, matchdayKey: key } });
-      continue;
-    }
+    if (!info.allFinished) continue; // award only when the whole day is finished
 
     const sums = new Map<string, number>();
     for (const p of preds) {
@@ -317,8 +316,6 @@ async function computeMatchdayAwards(leagueId: string) {
       sums.set(p.membershipId, (sums.get(p.membershipId) ?? 0) + p.points);
     }
     const max = Math.max(0, ...sums.values());
-
-    await prisma.matchdayAward.deleteMany({ where: { leagueId, matchdayKey: key } });
     if (max <= 0) continue; // nobody scored — no award
 
     const winners = [...sums.entries()].filter(([, v]) => v === max).map(([id]) => id);

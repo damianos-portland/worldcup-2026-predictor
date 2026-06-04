@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { CreateQuiz } from "@/components/admin/create-quiz";
 import { QuizEditor } from "@/components/admin/quiz-editor";
 import { Card, CardContent } from "@/components/ui/card";
-import { matchdayKey } from "@/lib/matchday";
+import { matchdayKey, matchdayLabel } from "@/lib/matchday";
 import type { QuizMatch } from "@/lib/quiz-templates";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,14 @@ export default async function AdminQuizPage() {
     }),
   ]);
 
-  // Group matches (that have both teams) by matchday key for the question builder.
+  // Every matchday (calendar day) that has fixtures, for the create dropdown.
+  const dayMeta = new Map<string, number>();
+  for (const m of matches) dayMeta.set(matchdayKey(m), (dayMeta.get(matchdayKey(m)) ?? 0) + 1);
+  const allMatchdays = [...dayMeta.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, count]) => ({ key, label: matchdayLabel(key), count }));
+
+  // Group matches (that have both teams) by matchday for the question builder.
   const matchesByKey = new Map<string, QuizMatch[]>();
   for (const m of matches) {
     if (!m.homeTeam || !m.awayTeam) continue;
@@ -57,7 +64,7 @@ export default async function AdminQuizPage() {
             answers after the games and hit <span className="text-gold">Grade</span> to score it
             (0–5 correct = 0 pts, 6→1, 7→2, 8→3, 9→4, 10→5 + a Quiz Genius badge).
           </p>
-          <CreateQuiz existing={quizzes.map((q) => q.matchdayKey)} />
+          <CreateQuiz matchdays={allMatchdays} existing={quizzes.map((q) => q.matchdayKey)} />
         </CardContent>
       </Card>
 

@@ -60,9 +60,9 @@ export default async function AdminQuizPage() {
             <Brain className="h-5 w-5 text-gold" /> Matchday Quizzes
           </h3>
           <p className="mb-4 text-xs text-muted-foreground">
-            Author ~10 questions per matchday. Open it for answers, then set the correct
-            answers after the games and hit <span className="text-gold">Grade</span> to score it
-            (0–5 correct = 0 pts, 6→1, 7→2, 8→3, 9→4, 10→5 + a Quiz Genius badge).
+            Author questions per matchday (2–3 per match works well). Open it for answers,
+            then set the correct answers after the games and hit <span className="text-gold">Grade</span>.
+            Scoring scales with the number of questions: a perfect round = 5 pts, 60%+ scales 1–4, plus a Quiz Genius badge for 100%.
           </p>
           <CreateQuiz matchdays={allMatchdays} existing={quizzes.map((q) => q.matchdayKey)} />
         </CardContent>

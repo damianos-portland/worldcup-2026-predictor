@@ -44,7 +44,7 @@ export function MatchPredictionCard({ leagueId, match, prediction, jokerAvailabl
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
 
-  const locked = match.status !== "UPCOMING";
+  const locked = match.status !== "UPCOMING" || new Date(match.kickoff) <= new Date();
 
   function save() {
     if (home === "" || away === "") return;

@@ -112,7 +112,7 @@ export default function RulesPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">A perfect 10/10 also earns the <span className="text-gold">Quiz Genius</span> badge.</p>
+            <p className="mt-3 text-xs text-muted-foreground">Scores scale to the number of questions (a perfect round = 5 pts). A 100% round also earns the <span className="text-gold">Quiz Genius</span> badge.</p>
           </Section>
 
           {/* Recognition: MotM + H2H */}

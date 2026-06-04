@@ -85,13 +85,16 @@ export function computeStreakBonus(
 }
 
 /**
- * Matchday-quiz scoring scale (designed for 10-question quizzes):
- * 0–5 correct → 0, then 6→1, 7→2, 8→3, 9→4, 10→5.
+ * Matchday-quiz scoring, proportional to the number of questions so a 6- or
+ * 10-question quiz both work: a perfect score = 5, ≥60% scales 1–4, <60% = 0.
+ * (For a 10-question quiz this gives the classic 6→1, 7→2, 8→3, 9→4, 10→5.)
  */
-export function scoreQuiz(correct: number): number {
-  if (correct >= 10) return 5;
-  if (correct >= 6) return correct - 5;
-  return 0;
+export function scoreQuiz(correct: number, total: number): number {
+  if (total <= 0) return 0;
+  const ratio = correct / total;
+  if (ratio >= 1) return 5;
+  if (ratio < 0.6) return 0;
+  return Math.min(4, Math.max(1, Math.round((ratio - 0.5) * 10)));
 }
 
 /** Total quiz points for a membership across all GRADED quizzes (+ perfect-round flag). */
@@ -113,12 +116,13 @@ export async function membershipQuizPoints(
   let points = 0;
   let perfectRound = false;
   for (const quiz of quizzes) {
+    const total = quiz.questions.length;
     let correct = 0;
     for (const q of quiz.questions) {
       if (q.correctIndex >= 0 && choiceByQ.get(q.id) === q.correctIndex) correct++;
     }
-    points += scoreQuiz(correct);
-    if (correct >= 10) perfectRound = true;
+    points += scoreQuiz(correct, total);
+    if (total > 0 && correct === total) perfectRound = true;
   }
   return { points, perfectRound };
 }

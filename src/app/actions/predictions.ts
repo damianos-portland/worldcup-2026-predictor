@@ -29,7 +29,7 @@ export async function savePrediction(formData: FormData) {
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return { error: "Match not found." };
-  if (match.status !== "UPCOMING") {
+  if (match.status !== "UPCOMING" || match.kickoff <= new Date()) {
     return { error: "Predictions for this match are locked." };
   }
   if (match.phase === "KNOCKOUT") {
@@ -56,7 +56,7 @@ export async function toggleJoker(formData: FormData) {
   const membership = await memberOrThrow(leagueId);
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match || match.status !== "UPCOMING") {
+  if (!match || match.status !== "UPCOMING" || match.kickoff <= new Date()) {
     return { error: "Joker can only be set before kickoff." };
   }
 
@@ -97,7 +97,7 @@ export async function togglePowerPick(formData: FormData) {
   const membership = await memberOrThrow(leagueId);
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match || match.status !== "UPCOMING") {
+  if (!match || match.status !== "UPCOMING" || match.kickoff <= new Date()) {
     return { error: "Power Pick can only be set before kickoff." };
   }
   if (match.phase === "KNOCKOUT") {

@@ -63,7 +63,7 @@ export default async function QuizPage({ params }: { params: { id: string } }) {
           for (const q of quiz.questions) {
             if (q.correctIndex >= 0 && myChoice.get(q.id) === q.correctIndex) correct++;
           }
-          const pts = scoreQuiz(correct);
+          const pts = scoreQuiz(correct, quiz.questions.length);
           const champ = await quizChamp(quiz.id, quiz.questions);
           return (
             <Card key={quiz.id}>

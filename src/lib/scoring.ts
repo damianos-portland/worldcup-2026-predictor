@@ -160,15 +160,20 @@ export async function recalculateLeague(leagueId: string) {
 
     const streak = computeStreakBonus(exactFlags);
 
-    // Bonus picks
+    // Bonus picks — a one-time replacement (used after the original was
+    // eliminated) only awards HALF the bonus.
     let winnerBonus = 0;
     if (m.winnerPick && champion && m.winnerPick.nationalTeamId === champion) {
-      winnerBonus = league.winnerBonus;
+      winnerBonus = m.winnerPick.isReplacement
+        ? Math.round(league.winnerBonus / 2)
+        : league.winnerBonus;
       unlocked.add("CHAMPION_HUNTER");
     }
     let topScorerBonus = 0;
     if (m.topScorerPick && topScorer && m.topScorerPick.playerId === topScorer.id) {
-      topScorerBonus = league.topScorerBonus;
+      topScorerBonus = m.topScorerPick.isReplacement
+        ? Math.round(league.topScorerBonus / 2)
+        : league.topScorerBonus;
       unlocked.add("TOP_SCORER_EXPERT");
     }
 
@@ -248,8 +253,16 @@ export async function membershipStats(membershipId: string) {
   );
   const streak = computeStreakBonus(ordered.map((p) => p.isExact));
 
-  const winnerBonus = m.winnerPick?.awarded ? m.league.winnerBonus : 0;
-  const topScorerBonus = m.topScorerPick?.awarded ? m.league.topScorerBonus : 0;
+  const winnerBonus = m.winnerPick?.awarded
+    ? m.winnerPick.isReplacement
+      ? Math.round(m.league.winnerBonus / 2)
+      : m.league.winnerBonus
+    : 0;
+  const topScorerBonus = m.topScorerPick?.awarded
+    ? m.topScorerPick.isReplacement
+      ? Math.round(m.league.topScorerBonus / 2)
+      : m.league.topScorerBonus
+    : 0;
 
   return {
     exactCorrect: exact.length,

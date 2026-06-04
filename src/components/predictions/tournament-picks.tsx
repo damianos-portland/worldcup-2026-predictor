@@ -104,7 +104,8 @@ export function TournamentPicks({
         )}
         {locked && (
           <p className="text-xs text-muted-foreground">
-            Group stage locked — you may only replace a pick once it has been eliminated.
+            Group stage locked — you may only replace a pick once it has been
+            eliminated, and a replacement scores <span className="text-gold">half</span> the bonus.
           </p>
         )}
       </CardContent>

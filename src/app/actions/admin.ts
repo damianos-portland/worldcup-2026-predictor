@@ -140,6 +140,7 @@ export async function setLeaguePhase(formData: FormData) {
   const leagueId = formData.get("leagueId") as string;
   const action = formData.get("action") as
     | "LOCK_GROUP"
+    | "UNLOCK_GROUP"
     | "OPEN_KNOCKOUT"
     | "FINISH";
 
@@ -149,6 +150,12 @@ export async function setLeaguePhase(formData: FormData) {
       data: { groupLocked: true },
     });
     await notifyLeague(leagueId, "Group Stage Locked", "The group stage is now locked.", "PREDICTIONS_LOCKED");
+  } else if (action === "UNLOCK_GROUP") {
+    await prisma.league.update({
+      where: { id: leagueId },
+      data: { groupLocked: false },
+    });
+    await notifyLeague(leagueId, "Group Stage Reopened", "The admin has reopened the group stage — picks are editable again.", "GENERIC");
   } else if (action === "OPEN_KNOCKOUT") {
     await prisma.league.update({
       where: { id: leagueId },

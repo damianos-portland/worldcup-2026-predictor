@@ -1,4 +1,4 @@
-import { Users, Lock, Sparkles, Flag as FlagIcon, RefreshCw } from "lucide-react";
+import { Users, Lock, Unlock, Sparkles, Flag as FlagIcon, RefreshCw } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { setLeaguePhase, recalcLeagueAction } from "@/app/actions/admin";
 import { CreateLeague } from "@/components/admin/create-league";
@@ -48,9 +48,15 @@ export default async function AdminLeagues() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "LOCK_GROUP" }} variant="secondary">
-                    <Lock className="h-3 w-3" /> Lock Group
-                  </ActionButton>
+                  {l.groupLocked ? (
+                    <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "UNLOCK_GROUP" }} variant="secondary">
+                      <Unlock className="h-3 w-3" /> Unlock Group
+                    </ActionButton>
+                  ) : (
+                    <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "LOCK_GROUP" }} variant="secondary">
+                      <Lock className="h-3 w-3" /> Lock Group
+                    </ActionButton>
+                  )}
                   <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "OPEN_KNOCKOUT" }} variant="gold">
                     <Sparkles className="h-3 w-3" /> Open Knockouts
                   </ActionButton>

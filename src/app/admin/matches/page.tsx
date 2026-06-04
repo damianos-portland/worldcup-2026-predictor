@@ -42,6 +42,7 @@ export default async function MatchCenter({ searchParams }: { searchParams: { ph
 
       <p className="text-sm text-muted-foreground">
         Enter official results to automatically recalculate every league's standings, statistics and achievements.
+        {phase === "KNOCKOUT" && " Knockout winners auto-advance to the next round (a drawn match needs the shootout winner assigned manually)."}
       </p>
 
       {[...sections.entries()].map(([title, group]) => (

@@ -1,10 +1,13 @@
-import { Network } from "lucide-react";
+import { Network, Table2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getMembershipOrRedirect } from "@/lib/league-access";
+import { computeGroupStandings } from "@/lib/standings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
+import { flagEmoji } from "@/lib/flags";
 import { ROUND_LABELS } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +16,14 @@ const ORDER = ["ROUND_OF_32", "ROUND_OF_16", "QUARTER_FINAL", "SEMI_FINAL", "FIN
 export default async function BracketPage({ params }: { params: { id: string } }) {
   await getMembershipOrRedirect(params.id);
 
-  const matches = await prisma.match.findMany({
-    where: { phase: "KNOCKOUT", round: { in: ORDER as any } },
-    orderBy: { kickoff: "asc" },
-    include: { homeTeam: true, awayTeam: true },
-  });
+  const [matches, standings] = await Promise.all([
+    prisma.match.findMany({
+      where: { phase: "KNOCKOUT", round: { in: ORDER as any } },
+      orderBy: { kickoff: "asc" },
+      include: { homeTeam: true, awayTeam: true },
+    }),
+    computeGroupStandings(),
+  ]);
 
   const byRound = new Map<string, typeof matches>();
   for (const m of matches) {
@@ -26,7 +32,62 @@ export default async function BracketPage({ params }: { params: { id: string } }
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* Group standings */}
+      <div>
+        <h1 className="mb-3 flex items-center gap-2 font-display text-xl font-bold">
+          <Table2 className="h-5 w-5 text-gold" /> Group Standings
+        </h1>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[...standings.entries()].map(([group, rows]) => (
+            <Card key={group}>
+              <CardContent className="p-3">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold/80">
+                  Group {group}
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <th className="py-1 text-left font-medium">#</th>
+                      <th className="py-1 text-left font-medium">Team</th>
+                      <th className="py-1 text-center font-medium">P</th>
+                      <th className="py-1 text-center font-medium">GD</th>
+                      <th className="py-1 text-center font-medium">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr
+                        key={r.teamId}
+                        className={cn(
+                          "border-t border-white/5",
+                          i < 2 && "text-foreground",
+                          i >= 2 && "text-muted-foreground"
+                        )}
+                      >
+                        <td className="py-1.5">
+                          <span className={cn(
+                            "inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold",
+                            i === 0 ? "bg-gold/20 text-gold" : i === 1 ? "bg-white/10" : ""
+                          )}>{i + 1}</span>
+                        </td>
+                        <td className="py-1.5">{flagEmoji(r.code)} {r.name}</td>
+                        <td className="py-1.5 text-center">{r.played}</td>
+                        <td className="py-1.5 text-center">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
+                        <td className="py-1.5 text-center font-bold text-gold">{r.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Top 2 of each group (highlighted) advance directly, plus the 8 best third-placed teams.
+        </p>
+      </div>
+
       <h1 className="flex items-center gap-2 font-display text-xl font-bold">
         <Network className="h-5 w-5 text-gold" /> Tournament Bracket
       </h1>

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { League, Match, Prediction } from "@prisma/client";
+import { matchdayKey, matchdayLabel } from "@/lib/matchday";
 
 export type ScoreBreakdown = {
   points: number;
@@ -19,7 +20,7 @@ function outcome(home: number, away: number): "H" | "D" | "A" {
  * An activated Joker doubles the resulting match points on top of that.
  */
 export function scorePrediction(
-  prediction: Pick<Prediction, "homeScore" | "awayScore" | "jokerUsed">,
+  prediction: Pick<Prediction, "homeScore" | "awayScore" | "jokerUsed" | "powerPick">,
   match: Pick<Match, "homeScore" | "awayScore" | "isGolden">,
   league: Pick<League, "exactPoints" | "outcomePoints">
 ): ScoreBreakdown {
@@ -42,8 +43,13 @@ export function scorePrediction(
   if (isExact) base = league.exactPoints;
   else if (isOutcome) base = league.outcomePoints;
 
+  // Power Pick adds +50% (rounded up). Multipliers stack:
+  // e.g. Golden + Joker + Power Pick on an exact = 10×2×2×1.5 = 60.
+  const stacked = base * goldenMultiplier * jokerMultiplier;
+  const points = prediction.powerPick ? Math.round(stacked * 1.5) : stacked;
+
   return {
-    points: base * goldenMultiplier * jokerMultiplier,
+    points,
     isExact,
     isOutcome: isOutcome && !isExact,
   };
@@ -223,6 +229,75 @@ export async function recalculateLeague(leagueId: string) {
       data: { previousRank: m.currentRank || rank, currentRank: rank },
     });
     rank += 1;
+  }
+
+  await computeMatchdayAwards(leagueId);
+}
+
+/**
+ * Manager of the Matchday: for each fully-finished matchday/round, award the
+ * member(s) who scored the most prediction points that matchday. Idempotent —
+ * recomputed each recalc; notifies only on a newly-won award.
+ */
+async function computeMatchdayAwards(leagueId: string) {
+  const matches = await prisma.match.findMany({
+    select: { id: true, phase: true, matchday: true, round: true, status: true },
+  });
+  // Group match IDs by matchday key, tracking whether all are finished.
+  const byKey = new Map<string, { ids: Set<string>; allFinished: boolean }>();
+  for (const mt of matches) {
+    const key = matchdayKey(mt);
+    if (!byKey.has(key)) byKey.set(key, { ids: new Set(), allFinished: true });
+    const entry = byKey.get(key)!;
+    entry.ids.add(mt.id);
+    if (mt.status !== "FINISHED") entry.allFinished = false;
+  }
+
+  const existing = await prisma.matchdayAward.findMany({ where: { leagueId } });
+  const existingSet = new Set(existing.map((a) => `${a.matchdayKey}|${a.membershipId}`));
+
+  const preds = await prisma.prediction.findMany({
+    where: { membership: { leagueId }, scored: true },
+    select: { membershipId: true, matchId: true, points: true },
+  });
+
+  for (const [key, info] of byKey) {
+    // Award only once every match in the matchday is finished.
+    if (!info.allFinished) {
+      await prisma.matchdayAward.deleteMany({ where: { leagueId, matchdayKey: key } });
+      continue;
+    }
+
+    const sums = new Map<string, number>();
+    for (const p of preds) {
+      if (!info.ids.has(p.matchId)) continue;
+      sums.set(p.membershipId, (sums.get(p.membershipId) ?? 0) + p.points);
+    }
+    const max = Math.max(0, ...sums.values());
+
+    await prisma.matchdayAward.deleteMany({ where: { leagueId, matchdayKey: key } });
+    if (max <= 0) continue; // nobody scored — no award
+
+    const winners = [...sums.entries()].filter(([, v]) => v === max).map(([id]) => id);
+    const label = matchdayLabel(key);
+    for (const membershipId of winners) {
+      await prisma.matchdayAward.create({
+        data: { leagueId, membershipId, matchdayKey: key, label, points: max },
+      });
+      if (!existingSet.has(`${key}|${membershipId}`)) {
+        const ms = await prisma.membership.findUnique({ where: { id: membershipId } });
+        if (ms) {
+          await prisma.notification.create({
+            data: {
+              userId: ms.userId,
+              type: "BONUS_EARNED",
+              title: "👑 Manager of the Matchday!",
+              message: `You topped ${label} with ${max} points.`,
+            },
+          });
+        }
+      }
+    }
   }
 }
 

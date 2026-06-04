@@ -19,6 +19,7 @@ export default async function LeaderboardPage({ params }: { params: { id: string
       winnerPick: { include: { nationalTeam: true } },
       topScorerPick: { include: { player: true } },
       predictions: { where: { scored: true } },
+      _count: { select: { matchdayAwards: true } },
     },
   });
 
@@ -90,6 +91,7 @@ export default async function LeaderboardPage({ params }: { params: { id: string
                   <th className="px-3 py-3 text-center">Pts</th>
                   <th className="px-3 py-3 text-center">Exact</th>
                   <th className="px-3 py-3 text-center">Outcome</th>
+                  <th className="px-3 py-3 text-center" title="Manager of the Matchday wins">👑</th>
                   <th className="px-3 py-3">Winner</th>
                   <th className="px-3 py-3">Top Scorer</th>
                   <th className="px-3 py-3 text-center">Move</th>
@@ -122,6 +124,7 @@ export default async function LeaderboardPage({ params }: { params: { id: string
                       <td className="px-3 py-3 text-center font-display font-bold text-gold">{r.totalPoints}</td>
                       <td className="px-3 py-3 text-center">{r.exact}</td>
                       <td className="px-3 py-3 text-center">{r.outcome}</td>
+                      <td className="px-3 py-3 text-center font-semibold text-gold">{r._count.matchdayAwards || "–"}</td>
                       <td className="px-3 py-3">
                         {r.winnerPick ? (
                           <Flag code={r.winnerPick.nationalTeam.code} name={r.winnerPick.nationalTeam.name} className="text-xs" />

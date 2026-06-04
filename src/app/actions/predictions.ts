@@ -89,6 +89,47 @@ export async function toggleJoker(formData: FormData) {
   return { success: true };
 }
 
+/** Toggle the Power Pick (×1.5) for a match — only one per matchday/round. */
+export async function togglePowerPick(formData: FormData) {
+  const leagueId = formData.get("leagueId") as string;
+  const matchId = formData.get("matchId") as string;
+  const membership = await memberOrThrow(leagueId);
+
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match || match.status !== "UPCOMING") {
+    return { error: "Power Pick can only be set before kickoff." };
+  }
+  if (match.phase === "KNOCKOUT") {
+    const league = await prisma.league.findUnique({ where: { id: leagueId } });
+    if (league?.knockoutLocked) {
+      return { error: "The knockout stage is locked — no more changes." };
+    }
+  }
+
+  const prediction = await prisma.prediction.findUnique({
+    where: { membershipId_matchId: { membershipId: membership.id, matchId } },
+  });
+  if (!prediction) return { error: "Submit a prediction before using a Power Pick." };
+
+  if (prediction.powerPick) {
+    await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: false } });
+  } else {
+    // Clear any existing Power Pick in the same matchday, then set this one.
+    const siblingMatch =
+      match.phase === "GROUP"
+        ? { phase: "GROUP" as const, matchday: match.matchday }
+        : { phase: "KNOCKOUT" as const, round: match.round };
+    await prisma.prediction.updateMany({
+      where: { membershipId: membership.id, powerPick: true, match: siblingMatch },
+      data: { powerPick: false },
+    });
+    await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: true } });
+  }
+
+  revalidatePath(`/leagues/${leagueId}/predictions`);
+  return { success: true };
+}
+
 /** Save the Tournament Winner pick. */
 export async function saveWinnerPick(formData: FormData) {
   const leagueId = formData.get("leagueId") as string;

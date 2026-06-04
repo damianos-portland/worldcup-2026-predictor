@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Sparkles, Check, Lock, Loader2, Trophy } from "lucide-react";
-import { savePrediction, toggleJoker } from "@/app/actions/predictions";
+import { Sparkles, Check, Lock, Loader2, Star } from "lucide-react";
+import { savePrediction, toggleJoker, togglePowerPick } from "@/app/actions/predictions";
 import { Flag } from "@/components/flag";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,7 @@ type Props = {
     homeScore: number;
     awayScore: number;
     jokerUsed: boolean;
+    powerPick: boolean;
     points: number;
     scored: boolean;
     isExact: boolean;
@@ -38,6 +39,7 @@ export function MatchPredictionCard({ leagueId, match, prediction, jokerAvailabl
   const [home, setHome] = useState(prediction?.homeScore?.toString() ?? "");
   const [away, setAway] = useState(prediction?.awayScore?.toString() ?? "");
   const [joker, setJoker] = useState(prediction?.jokerUsed ?? false);
+  const [power, setPower] = useState(prediction?.powerPick ?? false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
@@ -73,12 +75,23 @@ export function MatchPredictionCard({ leagueId, match, prediction, jokerAvailabl
     });
   }
 
+  function onPower() {
+    const fd = new FormData();
+    fd.set("leagueId", leagueId);
+    fd.set("matchId", match.id);
+    start(async () => {
+      const res = await togglePowerPick(fd);
+      if (res?.error) setError(res.error);
+      else setPower((p) => !p);
+    });
+  }
+
   return (
     <div
       className={cn(
         "rounded-2xl border bg-white/[0.02] p-4 transition-colors",
         match.isGolden ? "border-gold/40 bg-gold/[0.04]" : "border-white/5",
-        joker && "ring-1 ring-gold/50"
+        (joker || power) && "ring-1 ring-gold/50"
       )}
     >
       <div className="mb-3 flex items-center justify-between">
@@ -158,19 +171,34 @@ export function MatchPredictionCard({ leagueId, match, prediction, jokerAvailabl
         </div>
 
         {!locked && (
-          <button
-            onClick={onJoker}
-            disabled={pending || (!joker && !jokerAvailable) || !prediction}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-40",
-              joker
-                ? "border-gold/50 bg-gold/15 text-gold"
-                : "border-white/10 text-muted-foreground hover:border-gold/40 hover:text-gold"
-            )}
-            title={!prediction ? "Save a prediction first" : "Double this match's points"}
-          >
-            <Sparkles className="h-3.5 w-3.5" /> {joker ? "Joker active" : "Joker"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onPower}
+              disabled={pending || !prediction}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-40",
+                power
+                  ? "border-gold/50 bg-gold/15 text-gold"
+                  : "border-white/10 text-muted-foreground hover:border-gold/40 hover:text-gold"
+              )}
+              title={!prediction ? "Save a prediction first" : "Boost this match's points ×1.5 (one per matchday)"}
+            >
+              <Star className="h-3.5 w-3.5" /> {power ? "Power Pick ×1.5" : "Power Pick"}
+            </button>
+            <button
+              onClick={onJoker}
+              disabled={pending || (!joker && !jokerAvailable) || !prediction}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-40",
+                joker
+                  ? "border-gold/50 bg-gold/15 text-gold"
+                  : "border-white/10 text-muted-foreground hover:border-gold/40 hover:text-gold"
+              )}
+              title={!prediction ? "Save a prediction first" : "Double this match's points"}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {joker ? "Joker active" : "Joker"}
+            </button>
+          </div>
         )}
       </div>
 

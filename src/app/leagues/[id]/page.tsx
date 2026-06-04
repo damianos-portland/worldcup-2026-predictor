@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export default async function LeagueOverview({ params }: { params: { id: string } }) {
   const { user, league, membership } = await getMembershipOrRedirect(params.id);
 
-  const [stats, picks, topFive, nextMatch, recentResults, notifications, predictionCount, matchTotal] =
+  const [stats, picks, topFive, nextMatch, recentResults, notifications, predictionCount, matchTotal, matchdayAwards] =
     await Promise.all([
       membershipStats(membership.id),
       prisma.membership.findUnique({
@@ -58,9 +58,30 @@ export default async function LeagueOverview({ params }: { params: { id: string 
       }),
       prisma.prediction.count({ where: { membershipId: membership.id } }),
       prisma.match.count(),
+      prisma.matchdayAward.findMany({
+        where: { leagueId: league.id },
+        include: { membership: { include: { user: true } } },
+      }),
     ]);
 
   const move = classNamesForMovement(membership.currentRank, membership.previousRank);
+
+  // Group Manager-of-the-Matchday awards by matchday, in chronological order.
+  const KEY_ORDER = [
+    "GROUP-1", "GROUP-2", "GROUP-3",
+    "KO-ROUND_OF_32", "KO-ROUND_OF_16", "KO-QUARTER_FINAL",
+    "KO-SEMI_FINAL", "KO-THIRD_PLACE", "KO-FINAL",
+  ];
+  const awardsByKey = new Map<string, { key: string; label: string; points: number; winners: string[] }>();
+  for (const a of matchdayAwards) {
+    if (!awardsByKey.has(a.matchdayKey)) {
+      awardsByKey.set(a.matchdayKey, { key: a.matchdayKey, label: a.label, points: a.points, winners: [] });
+    }
+    awardsByKey.get(a.matchdayKey)!.winners.push(a.membership.teamName);
+  }
+  const orderedAwards = [...awardsByKey.values()].sort(
+    (x, y) => KEY_ORDER.indexOf(x.key) - KEY_ORDER.indexOf(y.key)
+  );
 
   const statCards = [
     { label: "Total Points", value: membership.totalPoints, icon: Trophy },
@@ -259,6 +280,28 @@ export default async function LeagueOverview({ params }: { params: { id: string 
           )}
         </CardContent>
       </Card>
+
+      {/* Manager of the Matchday roll of honour */}
+      {matchdayAwards.length > 0 && (
+        <Card>
+          <CardContent className="p-5">
+            <h3 className="section-title mb-4 flex items-center gap-2">
+              <Crown className="h-3.5 w-3.5" /> Manager of the Matchday
+            </h3>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {orderedAwards.map((a) => (
+                <div key={a.key} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.02] px-4 py-2.5">
+                  <div>
+                    <div className="text-xs text-muted-foreground">{a.label}</div>
+                    <div className="text-sm font-semibold">{a.winners.join(", ")}</div>
+                  </div>
+                  <Badge variant="gold">{a.points} pts</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

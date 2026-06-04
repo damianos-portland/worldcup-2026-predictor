@@ -143,7 +143,8 @@ export default async function PredictionsPage({
             <div className="flex justify-between"><span className="text-muted-foreground">Exact score</span><span className="font-semibold text-gold">{league.exactPoints} pts</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Correct outcome</span><span className="font-semibold">{league.outcomePoints} pts</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Golden match</span><span className="font-semibold text-gold">×2</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Joker</span><span className="font-semibold text-gold">×2</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Joker <span className="text-[10px]">(1 / phase)</span></span><span className="font-semibold text-gold">×2</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Power Pick <span className="text-[10px]">(1 / matchday)</span></span><span className="font-semibold text-gold">×1.5</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">3-in-a-row streak</span><span className="font-semibold">+5</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">5-in-a-row streak</span><span className="font-semibold">+15</span></div>
           </CardContent>

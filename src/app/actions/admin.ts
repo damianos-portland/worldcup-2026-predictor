@@ -144,7 +144,8 @@ export async function setLeaguePhase(formData: FormData) {
     | "OPEN_KNOCKOUT"
     | "LOCK_KNOCKOUT"
     | "UNLOCK_KNOCKOUT"
-    | "FINISH";
+    | "FINISH"
+    | "UNFINISH";
 
   if (action === "LOCK_GROUP") {
     await prisma.league.update({
@@ -182,6 +183,12 @@ export async function setLeaguePhase(formData: FormData) {
       data: { phase: "FINISHED" },
     });
     await notifyLeague(leagueId, "Tournament Completed", "The tournament is complete. Check the final standings!", "TOURNAMENT_COMPLETED");
+  } else if (action === "UNFINISH") {
+    await prisma.league.update({
+      where: { id: leagueId },
+      data: { phase: "KNOCKOUT" },
+    });
+    await notifyLeague(leagueId, "Tournament Reopened", "The admin has reopened the tournament.", "GENERIC");
   }
 
   await recalculateLeague(leagueId);

@@ -45,6 +45,7 @@ export default async function AdminLeagues() {
                     <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {l._count.memberships} managers</span>
                     {l.groupLocked && <span className="flex items-center gap-1"><Lock className="h-3.5 w-3.5" /> Group locked</span>}
                     {l.knockoutOpen && <span className="flex items-center gap-1 text-gold"><Sparkles className="h-3.5 w-3.5" /> Knockouts open</span>}
+                    {l.knockoutLocked && <span className="flex items-center gap-1"><Lock className="h-3.5 w-3.5" /> Knockouts locked</span>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -60,6 +61,15 @@ export default async function AdminLeagues() {
                   <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "OPEN_KNOCKOUT" }} variant="gold">
                     <Sparkles className="h-3 w-3" /> Open Knockouts
                   </ActionButton>
+                  {l.knockoutLocked ? (
+                    <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "UNLOCK_KNOCKOUT" }} variant="secondary">
+                      <Unlock className="h-3 w-3" /> Unlock Knockouts
+                    </ActionButton>
+                  ) : (
+                    <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "LOCK_KNOCKOUT" }} variant="secondary">
+                      <Lock className="h-3 w-3" /> Lock Knockouts
+                    </ActionButton>
+                  )}
                   <ActionButton action={setLeaguePhase} fields={{ leagueId: l.id, action: "FINISH" }} variant="secondary">
                     <FlagIcon className="h-3 w-3" /> Finish
                   </ActionButton>

@@ -31,6 +31,12 @@ export async function savePrediction(formData: FormData) {
   if (match.status !== "UPCOMING") {
     return { error: "Predictions for this match are locked." };
   }
+  if (match.phase === "KNOCKOUT") {
+    const league = await prisma.league.findUnique({ where: { id: leagueId } });
+    if (league?.knockoutLocked) {
+      return { error: "The knockout stage is locked — no more changes." };
+    }
+  }
 
   await prisma.prediction.upsert({
     where: { membershipId_matchId: { membershipId: membership.id, matchId } },
@@ -89,6 +95,12 @@ export async function saveWinnerPick(formData: FormData) {
   const nationalTeamId = formData.get("nationalTeamId") as string;
   const membership = await memberOrThrow(leagueId);
 
+  const league = await prisma.league.findUnique({ where: { id: leagueId } });
+  // Once the knockout stage is locked (first KO match started), picks are final.
+  if (league?.knockoutLocked) {
+    return { error: "The knockout stage is locked — picks can no longer be changed." };
+  }
+
   const existing = await prisma.tournamentWinnerPick.findUnique({
     where: { membershipId: membership.id },
   });
@@ -98,8 +110,7 @@ export async function saveWinnerPick(formData: FormData) {
     const currentTeam = await prisma.nationalTeam.findUnique({
       where: { id: existing.nationalTeamId },
     });
-    const groupLockedLeague = await prisma.league.findUnique({ where: { id: leagueId } });
-    if (groupLockedLeague?.groupLocked) {
+    if (league?.groupLocked) {
       if (membership.winnerReplaced) {
         return { error: "You have already used your one winner replacement." };
       }
@@ -134,12 +145,16 @@ export async function saveTopScorerPick(formData: FormData) {
   const playerId = formData.get("playerId") as string;
   const membership = await memberOrThrow(leagueId);
 
+  const league = await prisma.league.findUnique({ where: { id: leagueId } });
+  if (league?.knockoutLocked) {
+    return { error: "The knockout stage is locked — picks can no longer be changed." };
+  }
+
   const existing = await prisma.topScorerPick.findUnique({
     where: { membershipId: membership.id },
   });
 
   if (existing) {
-    const league = await prisma.league.findUnique({ where: { id: leagueId } });
     const currentPlayer = await prisma.player.findUnique({
       where: { id: existing.playerId },
       include: { nationalTeam: true },

@@ -120,8 +120,9 @@ model League {
   code      String   @unique // XXXXX-XXXXX
   season    String   @default("2026")
   phase     Phase    @default(GROUP)
-  groupLocked   Boolean @default(false)
-  knockoutOpen  Boolean @default(false)
+  groupLocked    Boolean @default(false)
+  knockoutOpen   Boolean @default(false)
+  knockoutLocked Boolean @default(false)
   createdAt DateTime @default(now())
 
   // Scoring config (overridable per league)

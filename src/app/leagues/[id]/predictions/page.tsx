@@ -78,6 +78,15 @@ export default async function PredictionsPage({
           </Card>
         )}
 
+        {league.knockoutLocked && (
+          <Card className="border-gold/30">
+            <CardContent className="flex items-center gap-3 p-5 text-sm">
+              <Sparkles className="h-5 w-5 text-gold" />
+              The knockout stage is locked — predictions and Winner / Top Scorer replacements are final.
+            </CardContent>
+          </Card>
+        )}
+
         {[...sections.entries()].map(([title, group]) => (
           <div key={title}>
             <div className="mb-3 flex items-center gap-2">
@@ -115,7 +124,7 @@ export default async function PredictionsPage({
       <div className="space-y-4 lg:sticky lg:top-32 lg:self-start">
         <TournamentPicks
           leagueId={params.id}
-          locked={league.groupLocked}
+          locked={league.groupLocked || league.knockoutLocked}
           currentWinnerId={picks?.winnerPick?.nationalTeamId}
           currentScorerId={picks?.topScorerPick?.playerId}
           teams={teams.map((t) => ({ id: t.id, name: t.name, code: t.code, eliminated: t.eliminated }))}

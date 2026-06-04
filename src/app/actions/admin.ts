@@ -142,6 +142,8 @@ export async function setLeaguePhase(formData: FormData) {
     | "LOCK_GROUP"
     | "UNLOCK_GROUP"
     | "OPEN_KNOCKOUT"
+    | "LOCK_KNOCKOUT"
+    | "UNLOCK_KNOCKOUT"
     | "FINISH";
 
   if (action === "LOCK_GROUP") {
@@ -162,6 +164,18 @@ export async function setLeaguePhase(formData: FormData) {
       data: { phase: "KNOCKOUT", knockoutOpen: true, groupLocked: true },
     });
     await notifyLeague(leagueId, "Phase 2 Opened", "The knockout prediction phase is now open!", "PHASE_TWO_OPENED");
+  } else if (action === "LOCK_KNOCKOUT") {
+    await prisma.league.update({
+      where: { id: leagueId },
+      data: { knockoutLocked: true },
+    });
+    await notifyLeague(leagueId, "Knockout Stage Locked", "The knockout stage is locked — predictions and replacements are final.", "PREDICTIONS_LOCKED");
+  } else if (action === "UNLOCK_KNOCKOUT") {
+    await prisma.league.update({
+      where: { id: leagueId },
+      data: { knockoutLocked: false },
+    });
+    await notifyLeague(leagueId, "Knockout Stage Reopened", "The admin has reopened the knockout stage.", "GENERIC");
   } else if (action === "FINISH") {
     await prisma.league.update({
       where: { id: leagueId },

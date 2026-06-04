@@ -24,6 +24,9 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="flex items-center gap-2">
+          <Link href="/rules">
+            <Button variant="ghost" size="sm">Rules</Button>
+          </Link>
           {session?.user ? (
             <>
               <Link href="/leagues">

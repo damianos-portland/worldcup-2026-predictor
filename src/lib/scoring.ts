@@ -85,6 +85,45 @@ export function computeStreakBonus(
 }
 
 /**
+ * Matchday-quiz scoring scale (designed for 10-question quizzes):
+ * 0–5 correct → 0, then 6→1, 7→2, 8→3, 9→4, 10→5.
+ */
+export function scoreQuiz(correct: number): number {
+  if (correct >= 10) return 5;
+  if (correct >= 6) return correct - 5;
+  return 0;
+}
+
+/** Total quiz points for a membership across all GRADED quizzes (+ perfect-round flag). */
+export async function membershipQuizPoints(
+  membershipId: string
+): Promise<{ points: number; perfectRound: boolean }> {
+  const quizzes = await prisma.quiz.findMany({
+    where: { isGraded: true },
+    include: { questions: { select: { id: true, correctIndex: true } } },
+  });
+  if (quizzes.length === 0) return { points: 0, perfectRound: false };
+
+  const answers = await prisma.quizAnswer.findMany({
+    where: { membershipId },
+    select: { questionId: true, choiceIndex: true },
+  });
+  const choiceByQ = new Map(answers.map((a) => [a.questionId, a.choiceIndex]));
+
+  let points = 0;
+  let perfectRound = false;
+  for (const quiz of quizzes) {
+    let correct = 0;
+    for (const q of quiz.questions) {
+      if (q.correctIndex >= 0 && choiceByQ.get(q.id) === q.correctIndex) correct++;
+    }
+    points += scoreQuiz(correct);
+    if (correct >= 10) perfectRound = true;
+  }
+  return { points, perfectRound };
+}
+
+/**
  * Recalculate everything for a league: per-prediction points, bonuses,
  * streaks, totals, ranks (with movement) and achievements.
  * Safe to run repeatedly — it is fully idempotent.
@@ -183,8 +222,12 @@ export async function recalculateLeague(leagueId: string) {
       unlocked.add("TOP_SCORER_EXPERT");
     }
 
+    // Matchday quiz points
+    const quiz = await membershipQuizPoints(m.id);
+    if (quiz.perfectRound) unlocked.add("PERFECT_ROUND");
+
     const total =
-      predictionPoints + streak.bonus + winnerBonus + topScorerBonus;
+      predictionPoints + streak.bonus + winnerBonus + topScorerBonus + quiz.points;
 
     await prisma.membership.update({
       where: { id: m.id },
@@ -328,6 +371,8 @@ export async function membershipStats(membershipId: string) {
   );
   const streak = computeStreakBonus(ordered.map((p) => p.isExact));
 
+  const quiz = await membershipQuizPoints(m.id);
+
   const winnerBonus = m.winnerPick?.awarded
     ? m.winnerPick.isReplacement
       ? Math.round(m.league.winnerBonus / 2)
@@ -354,6 +399,7 @@ export async function membershipStats(membershipId: string) {
     pointsFromTopScorer: topScorerBonus,
     pointsFromJoker,
     pointsFromStreaks: streak.bonus,
+    pointsFromQuiz: quiz.points,
     totalPoints: m.totalPoints,
   };
 }

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ClipboardList, Globe2, Users } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Globe2, Users, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/matches", label: "Match Center", icon: ClipboardList },
+  { href: "/admin/quiz", label: "Quizzes", icon: Brain },
   { href: "/admin/tournament", label: "Tournament", icon: Globe2 },
   { href: "/admin/leagues", label: "Leagues", icon: Users },
 ];

@@ -16,6 +16,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: "GOLDEN_MATCH_SPECIALIST", title: "Golden Match Specialist", description: "Nail the exact score of a Golden Match", icon: "Star" },
   { key: "STREAK_3", title: "On Fire", description: "3 exact scores in a row", icon: "Flame" },
   { key: "STREAK_5", title: "Unstoppable", description: "5 exact scores in a row", icon: "Zap" },
+  { key: "PERFECT_ROUND", title: "Quiz Genius", description: "Score 10/10 on a matchday quiz", icon: "Brain" },
 ];
 
 export const ACHIEVEMENT_MAP = Object.fromEntries(

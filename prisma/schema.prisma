@@ -218,6 +218,7 @@ model Membership {
   topScorerPick  TopScorerPick?
   achievements   Achievement[]
   matchdayAwards MatchdayAward[]
+  quizAnswers    QuizAnswer[]
 
   @@unique([userId, leagueId])
   @@unique([leagueId, teamName])
@@ -304,4 +305,42 @@ model AdminSettings {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+// ---------------------------------------------------------------------------
+// Matchday Quiz — admin authors ~10 MCQs per matchday; graded after results.
+// ---------------------------------------------------------------------------
+model Quiz {
+  id          String  @id @default(cuid())
+  matchdayKey String  @unique // GROUP-1, KO-ROUND_OF_32, ...
+  title       String
+  isOpen      Boolean @default(false) // accepting answers
+  isGraded    Boolean @default(false) // scored into standings
+  createdAt   DateTime @default(now())
+
+  questions QuizQuestion[]
+}
+
+model QuizQuestion {
+  id           String   @id @default(cuid())
+  quizId       String
+  text         String
+  options      String[]
+  correctIndex Int      @default(-1) // -1 until the admin sets the answer
+  order        Int      @default(0)
+
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers QuizAnswer[]
+}
+
+model QuizAnswer {
+  id           String @id @default(cuid())
+  membershipId String
+  questionId   String
+  choiceIndex  Int
+
+  membership Membership   @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, questionId])
 }

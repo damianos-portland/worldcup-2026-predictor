@@ -1,4 +1,4 @@
-import { Target, Crosshair, Crown, Footprints, Sparkles, Flame, Trophy, Percent } from "lucide-react";
+import { Target, Crosshair, Crown, Footprints, Sparkles, Flame, Trophy, Percent, Brain } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getMembershipOrRedirect } from "@/lib/league-access";
 import { membershipStats } from "@/lib/scoring";
@@ -33,6 +33,7 @@ export default async function ProfilePage({ params }: { params: { id: string } }
     { label: "Top Scorer Bonus", value: stats.pointsFromTopScorer, icon: Footprints },
     { label: "Joker Bonus", value: stats.pointsFromJoker, icon: Sparkles },
     { label: "Streak Bonus", value: stats.pointsFromStreaks, icon: Flame },
+    { label: "Quiz Points", value: stats.pointsFromQuiz, icon: Brain },
   ];
 
   return (

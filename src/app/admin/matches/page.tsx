@@ -71,6 +71,9 @@ export default async function MatchCenter({ searchParams }: { searchParams: { ph
                     awayCode: m.awayTeam?.code,
                     homeScore: m.homeScore,
                     awayScore: m.awayScore,
+                    liveHomeScore: m.liveHomeScore,
+                    liveAwayScore: m.liveAwayScore,
+                    minute: m.minute,
                     slot: m.slot,
                   }}
                 />

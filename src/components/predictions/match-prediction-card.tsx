@@ -12,7 +12,7 @@ type Props = {
   leagueId: string;
   match: {
     id: string;
-    status: "UPCOMING" | "LOCKED" | "FINISHED";
+    status: "UPCOMING" | "LOCKED" | "LIVE" | "FINISHED";
     isGolden: boolean;
     kickoff: string;
     homeName?: string | null;

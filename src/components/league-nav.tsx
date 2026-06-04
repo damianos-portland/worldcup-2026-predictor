@@ -10,11 +10,13 @@ import {
   GitCompareArrows,
   Medal,
   Network,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "", label: "Overview", icon: LayoutDashboard },
+  { href: "/live", label: "Live", icon: Radio },
   { href: "/predictions", label: "Predictions", icon: ListChecks },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/bracket", label: "Bracket", icon: Network },

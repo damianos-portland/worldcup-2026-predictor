@@ -112,18 +112,67 @@ async function advanceKnockoutWinner(matchId: string) {
   }
 }
 
-/** Change match status (Upcoming / Locked / Finished). */
+/** Change match status (Upcoming / Locked / Live / Finished). */
 export async function setMatchStatus(formData: FormData) {
   await requireAdmin();
   const matchId = formData.get("matchId") as string;
-  const status = formData.get("status") as "UPCOMING" | "LOCKED" | "FINISHED";
-  await prisma.match.update({ where: { id: matchId }, data: { status } });
+  const status = formData.get("status") as "UPCOMING" | "LOCKED" | "LIVE" | "FINISHED";
+
+  if (status === "LIVE") {
+    // Kick off live tracking at 0-0 if no live score yet.
+    const m = await prisma.match.findUnique({ where: { id: matchId } });
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        status,
+        liveHomeScore: m?.liveHomeScore ?? 0,
+        liveAwayScore: m?.liveAwayScore ?? 0,
+        minute: m?.minute ?? "1'",
+      },
+    });
+  } else {
+    await prisma.match.update({ where: { id: matchId }, data: { status } });
+  }
 
   if (status === "LOCKED") {
     const leagues = await prisma.league.findMany({ select: { id: true } });
     for (const l of leagues)
       await notifyLeague(l.id, "Predictions Locked", "A match has been locked. No more changes.", "PREDICTIONS_LOCKED");
   }
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+/** Update a live match's running score + minute (manual or via the worker). */
+export async function updateLiveScore(formData: FormData) {
+  await requireAdmin();
+  const matchId = formData.get("matchId") as string;
+  const liveHomeScore = parseInt(formData.get("liveHomeScore") as string, 10);
+  const liveAwayScore = parseInt(formData.get("liveAwayScore") as string, 10);
+  const minute = (formData.get("minute") as string) || null;
+  if (Number.isNaN(liveHomeScore) || Number.isNaN(liveAwayScore)) {
+    return { error: "Enter both live scores." };
+  }
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { status: "LIVE", liveHomeScore, liveAwayScore, minute, lastLiveUpdate: new Date() },
+  });
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+/** Post a goal / card event to the Live Center ticker. */
+export async function postMatchEvent(formData: FormData) {
+  await requireAdmin();
+  const matchId = formData.get("matchId") as string;
+  const type = formData.get("type") as "GOAL" | "OWN_GOAL" | "PENALTY" | "YELLOW_CARD" | "RED_CARD";
+  const side = formData.get("side") as "HOME" | "AWAY";
+  const player = (formData.get("player") as string) || null;
+  const minute = (formData.get("minute") as string) || null;
+  const count = await prisma.matchEvent.count({ where: { matchId } });
+  await prisma.matchEvent.create({
+    data: { matchId, type, side, player, minute, sortKey: count + 1 },
+  });
   revalidatePath("/admin");
   return { success: true };
 }

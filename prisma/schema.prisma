@@ -22,7 +22,21 @@ enum Phase {
 enum MatchStatus {
   UPCOMING
   LOCKED
+  LIVE
   FINISHED
+}
+
+enum MatchEventType {
+  GOAL
+  OWN_GOAL
+  PENALTY
+  YELLOW_CARD
+  RED_CARD
+}
+
+enum Side {
+  HOME
+  AWAY
 }
 
 // Group stage + every knockout round
@@ -108,7 +122,31 @@ model Match {
   isGolden   Boolean     @default(false)
   matchday   Int         @default(1)
 
+  // Live state (while status = LIVE; final scores live in homeScore/awayScore)
+  liveHomeScore  Int?
+  liveAwayScore  Int?
+  minute         String? // e.g. "67'", "HT"
+  sourceEventId  String? // external provider (Sofascore) event id for live sync
+  lastLiveUpdate DateTime?
+
   predictions Prediction[]
+  events      MatchEvent[]
+}
+
+// Live match events (goals, cards) for the Live Center ticker
+model MatchEvent {
+  id        String         @id @default(cuid())
+  matchId   String
+  type      MatchEventType
+  side      Side
+  player    String?
+  minute    String?
+  sortKey   Int            @default(0) // ordering within a match
+  sourceKey String? // de-dupe key from the provider
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, sourceKey])
 }
 
 // ---------------------------------------------------------------------------

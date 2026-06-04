@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Sparkles, Loader2, Lock, Check } from "lucide-react";
-import { enterResult, setMatchStatus, markGoldenMatch, setKnockoutTeams } from "@/app/actions/admin";
+import { Save, Sparkles, Loader2, Lock, Check, Radio, Goal } from "lucide-react";
+import { enterResult, setMatchStatus, markGoldenMatch, setKnockoutTeams, updateLiveScore, postMatchEvent } from "@/app/actions/admin";
 import { flagEmoji } from "@/lib/flags";
 import { Badge } from "@/components/ui/badge";
 import { formatKickoff, cn } from "@/lib/utils";
@@ -16,7 +16,7 @@ export function MatchRow({
 }: {
   match: {
     id: string;
-    status: "UPCOMING" | "LOCKED" | "FINISHED";
+    status: "UPCOMING" | "LOCKED" | "LIVE" | "FINISHED";
     isGolden: boolean;
     kickoff: string;
     phase: "GROUP" | "KNOCKOUT";
@@ -28,6 +28,9 @@ export function MatchRow({
     awayCode?: string | null;
     homeScore: number | null;
     awayScore: number | null;
+    liveHomeScore?: number | null;
+    liveAwayScore?: number | null;
+    minute?: string | null;
     slot?: string | null;
   };
   teams: TeamOpt[];
@@ -37,6 +40,9 @@ export function MatchRow({
   const [away, setAway] = useState(match.awayScore?.toString() ?? "");
   const [homeId, setHomeId] = useState(match.homeId ?? "");
   const [awayId, setAwayId] = useState(match.awayId ?? "");
+  const [lh, setLh] = useState(match.liveHomeScore?.toString() ?? "0");
+  const [la, setLa] = useState(match.liveAwayScore?.toString() ?? "0");
+  const [min, setMin] = useState(match.minute ?? "");
   const [pending, start] = useTransition();
   const [done, setDone] = useState(false);
 
@@ -69,6 +75,34 @@ export function MatchRow({
     const fd = new FormData();
     fd.set("matchId", match.id);
     run(() => markGoldenMatch(fd));
+  }
+
+  function saveLive() {
+    const fd = new FormData();
+    fd.set("matchId", match.id);
+    fd.set("liveHomeScore", lh);
+    fd.set("liveAwayScore", la);
+    fd.set("minute", min);
+    run(() => updateLiveScore(fd));
+  }
+
+  function addGoal(side: "HOME" | "AWAY") {
+    if (side === "HOME") setLh((v) => String((parseInt(v, 10) || 0) + 1));
+    else setLa((v) => String((parseInt(v, 10) || 0) + 1));
+    const fd = new FormData();
+    fd.set("matchId", match.id);
+    fd.set("type", "GOAL");
+    fd.set("side", side);
+    fd.set("minute", min);
+    const live = new FormData();
+    live.set("matchId", match.id);
+    live.set("liveHomeScore", side === "HOME" ? String((parseInt(lh, 10) || 0) + 1) : lh);
+    live.set("liveAwayScore", side === "AWAY" ? String((parseInt(la, 10) || 0) + 1) : la);
+    live.set("minute", min);
+    run(async () => {
+      await postMatchEvent(fd);
+      await updateLiveScore(live);
+    });
   }
 
   function assignTeams() {
@@ -138,6 +172,7 @@ export function MatchRow({
         <select value={match.status} onChange={(e) => changeStatus(e.target.value)} className={selectClass}>
           <option value="UPCOMING">Upcoming</option>
           <option value="LOCKED">Locked</option>
+          <option value="LIVE">Live</option>
           <option value="FINISHED">Finished</option>
         </select>
         <button onClick={toggleGolden} disabled={pending}
@@ -146,6 +181,31 @@ export function MatchRow({
           <Sparkles className="h-3 w-3" /> {match.isGolden ? "Golden" : "Mark Golden"}
         </button>
       </div>
+
+      {match.status === "LIVE" && !needsTeams && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.04] p-2">
+          <Badge variant="live"><Radio className="h-3 w-3" /> LIVE</Badge>
+          <input value={lh} onChange={(e) => setLh(e.target.value)} type="number" min={0}
+            className="h-8 w-10 rounded-lg border border-input bg-black/30 text-center text-sm font-bold focus-visible:outline-none" />
+          <span className="text-muted-foreground">:</span>
+          <input value={la} onChange={(e) => setLa(e.target.value)} type="number" min={0}
+            className="h-8 w-10 rounded-lg border border-input bg-black/30 text-center text-sm font-bold focus-visible:outline-none" />
+          <input value={min} onChange={(e) => setMin(e.target.value)} placeholder="67'"
+            className="h-8 w-14 rounded-lg border border-input bg-black/30 px-2 text-center text-xs focus-visible:outline-none" />
+          <button onClick={saveLive} disabled={pending}
+            className="flex items-center gap-1 rounded-lg btn-gold px-2.5 py-1 text-xs font-semibold disabled:opacity-40">
+            <Save className="h-3 w-3" /> Update
+          </button>
+          <button onClick={() => addGoal("HOME")} disabled={pending}
+            className="flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs font-semibold hover:text-gold">
+            <Goal className="h-3 w-3" /> Home
+          </button>
+          <button onClick={() => addGoal("AWAY")} disabled={pending}
+            className="flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-xs font-semibold hover:text-gold">
+            <Goal className="h-3 w-3" /> Away
+          </button>
+        </div>
+      )}
     </div>
   );
 }

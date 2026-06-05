@@ -312,7 +312,7 @@ model AdminSettings {
 // ---------------------------------------------------------------------------
 model Quiz {
   id          String  @id @default(cuid())
-  matchdayKey String  @unique // GROUP-1, KO-ROUND_OF_32, ...
+  matchdayKey String  // chronological matchday bucket key (multiple quizzes allowed)
   title       String
   isOpen      Boolean @default(false) // accepting answers
   isGraded    Boolean @default(false) // scored into standings

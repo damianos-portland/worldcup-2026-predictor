@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/session";
 import { recalcAllLeagues } from "@/lib/results";
-import { quizMatchdayLabel } from "@/lib/quiz-templates";
 
 // ---- Admin ----
 
@@ -12,11 +11,12 @@ export async function createQuiz(formData: FormData) {
   await requireAdmin();
   const matchdayKey = formData.get("matchdayKey") as string;
   if (!matchdayKey) return { error: "Pick a matchday." };
-  const existing = await prisma.quiz.findUnique({ where: { matchdayKey } });
-  if (existing) return { error: "A quiz already exists for that matchday." };
-  await prisma.quiz.create({
-    data: { matchdayKey, title: quizMatchdayLabel(matchdayKey) + " Quiz" },
-  });
+  let title = ((formData.get("title") as string) || "Quiz").trim();
+  // Allow multiple quizzes per matchday (so players who miss the late games can
+  // still get a fresh quiz) — auto-number duplicates.
+  const existingCount = await prisma.quiz.count({ where: { matchdayKey } });
+  if (existingCount > 0) title = `${title} #${existingCount + 1}`;
+  await prisma.quiz.create({ data: { matchdayKey, title } });
   revalidatePath("/admin/quiz");
   return { success: true };
 }

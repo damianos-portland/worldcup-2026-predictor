@@ -1,16 +1,17 @@
 import { Brain } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { CreateQuiz } from "@/components/admin/create-quiz";
-import { QuizEditor } from "@/components/admin/quiz-editor";
+import { AdminQuizTabs } from "@/components/admin/admin-quiz-tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { quizMatchdayKey, quizMatchdayLabel, QUIZ_MATCHDAY_ORDER, type QuizMatch } from "@/lib/quiz-templates";
+import { computeQuizMatchdays } from "@/lib/quiz-matchday";
+import type { QuizMatch } from "@/lib/quiz-templates";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminQuizPage() {
   const [quizzes, matches] = await Promise.all([
     prisma.quiz.findMany({
-      orderBy: { matchdayKey: "asc" },
+      orderBy: [{ matchdayKey: "asc" }, { title: "asc" }],
       include: { questions: { orderBy: { order: "asc" } } },
     }),
     prisma.match.findMany({
@@ -21,20 +22,16 @@ export default async function AdminQuizPage() {
     }),
   ]);
 
-  // Quiz matchdays = 12 groups (6 matches each) + knockout rounds.
-  const dayMeta = new Map<string, number>();
-  for (const m of matches) dayMeta.set(quizMatchdayKey(m), (dayMeta.get(quizMatchdayKey(m)) ?? 0) + 1);
-  const allMatchdays = [...dayMeta.entries()]
-    .sort(([a], [b]) => QUIZ_MATCHDAY_ORDER.indexOf(a) - QUIZ_MATCHDAY_ORDER.indexOf(b))
-    .map(([key, count]) => ({ key, label: quizMatchdayLabel(key), count }));
+  // Chronological quiz matchdays (4–8 matches, Greek-evening aligned).
+  const matchdays = computeQuizMatchdays(
+    matches.map((m) => ({ id: m.id, kickoff: m.kickoff, phase: m.phase }))
+  );
 
-  // Group matches (that have both teams) by quiz matchday for the question builder.
-  const matchesByKey = new Map<string, QuizMatch[]>();
+  // matchId → builder-friendly QuizMatch (only fixtures with both teams).
+  const quizMatchById = new Map<string, QuizMatch>();
   for (const m of matches) {
     if (!m.homeTeam || !m.awayTeam) continue;
-    const key = quizMatchdayKey(m);
-    if (!matchesByKey.has(key)) matchesByKey.set(key, []);
-    matchesByKey.get(key)!.push({
+    quizMatchById.set(m.id, {
       id: m.id,
       label: `${m.homeTeam.name} vs ${m.awayTeam.name}`,
       home: m.homeTeam.name,
@@ -43,13 +40,25 @@ export default async function AdminQuizPage() {
       awayPlayers: m.awayTeam.players.map((p) => p.name),
     });
   }
+  const matchesByKey = new Map<string, QuizMatch[]>();
+  for (const md of matchdays) {
+    matchesByKey.set(
+      md.key,
+      md.matchIds.map((id) => quizMatchById.get(id)).filter(Boolean) as QuizMatch[]
+    );
+  }
 
-  // answer counts per quiz
   const counts = await Promise.all(
-    quizzes.map((q) =>
-      prisma.quizAnswer.count({ where: { question: { quizId: q.id } } })
-    )
+    quizzes.map((q) => prisma.quizAnswer.count({ where: { question: { quizId: q.id } } }))
   );
+
+  const tabData = quizzes.map((q, i) => ({
+    quiz: {
+      id: q.id, title: q.title, isOpen: q.isOpen, isGraded: q.isGraded, answerCount: counts[i],
+      questions: q.questions.map((qq) => ({ id: qq.id, text: qq.text, options: qq.options, correctIndex: qq.correctIndex })),
+    },
+    matches: matchesByKey.get(q.matchdayKey) ?? [],
+  }));
 
   return (
     <div className="space-y-6">
@@ -59,35 +68,18 @@ export default async function AdminQuizPage() {
             <Brain className="h-5 w-5 text-gold" /> Matchday Quizzes
           </h3>
           <p className="mb-4 text-xs text-muted-foreground">
-            One quiz per group (6 matches) or knockout round — 2 questions per match makes a tidy 10–12. Open it for answers,
-            then set the correct answers after the games and hit <span className="text-gold">Grade</span>.
-            Scoring scales with the number of questions: a perfect round = 5 pts, 60%+ scales 1–4, plus a Quiz Genius badge for 100%.
+            Matchdays are chronological bunches of 4–8 matches (Greek-evening aligned). You can create
+            several quizzes per matchday so players who miss the late games still get a fresh one.
+            Set the correct answers after the games, then hit <span className="text-gold">Grade</span>.
           </p>
-          <CreateQuiz matchdays={allMatchdays} existing={quizzes.map((q) => q.matchdayKey)} />
+          <CreateQuiz matchdays={matchdays.map((m) => ({ key: m.key, label: m.label, count: m.count }))} />
         </CardContent>
       </Card>
 
-      {quizzes.length === 0 ? (
+      {tabData.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No quizzes yet — create one above.</CardContent></Card>
       ) : (
-        <div className="space-y-4">
-          {quizzes.map((q, i) => (
-            <QuizEditor
-              key={q.id}
-              matches={matchesByKey.get(q.matchdayKey) ?? []}
-              quiz={{
-                id: q.id,
-                title: q.title,
-                isOpen: q.isOpen,
-                isGraded: q.isGraded,
-                answerCount: counts[i],
-                questions: q.questions.map((qq) => ({
-                  id: qq.id, text: qq.text, options: qq.options, correctIndex: qq.correctIndex,
-                })),
-              }}
-            />
-          ))}
-        </div>
+        <AdminQuizTabs quizzes={tabData} />
       )}
     </div>
   );

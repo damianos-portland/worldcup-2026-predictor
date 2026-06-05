@@ -7,20 +7,20 @@ import { createQuiz } from "@/app/actions/quiz";
 
 export function CreateQuiz({
   matchdays,
-  existing,
 }: {
   matchdays: { key: string; label: string; count: number }[];
-  existing: string[];
 }) {
   const router = useRouter();
   const [key, setKey] = useState("");
   const [pending, start] = useTransition();
-  const available = matchdays.filter((m) => !existing.includes(m.key));
+  const available = matchdays;
 
   function onCreate() {
     if (!key) return;
+    const md = matchdays.find((m) => m.key === key);
     const fd = new FormData();
     fd.set("matchdayKey", key);
+    fd.set("title", md ? `${md.label} Quiz` : "Quiz");
     start(async () => { await createQuiz(fd); setKey(""); router.refresh(); });
   }
 

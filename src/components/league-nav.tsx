@@ -13,6 +13,7 @@ import {
   Radio,
   Brain,
   Swords,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ const TABS = [
   { href: "", label: "Overview", icon: LayoutDashboard },
   { href: "/live", label: "Live", icon: Radio },
   { href: "/predictions", label: "Predictions", icon: ListChecks },
+  { href: "/powerpick", label: "Power Pick", icon: Star },
   { href: "/quiz", label: "Quiz", icon: Brain },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/h2h", label: "H2H", icon: Swords },

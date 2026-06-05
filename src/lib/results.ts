@@ -7,21 +7,54 @@ export async function recalcAllLeagues() {
   for (const l of leagues) await recalculateLeague(l.id);
 }
 
-// Which round each knockout round feeds into (null = end of the line).
-const NEXT_ROUND: Record<string, string | null> = {
-  ROUND_OF_32: "ROUND_OF_16",
-  ROUND_OF_16: "QUARTER_FINAL",
-  QUARTER_FINAL: "SEMI_FINAL",
-  SEMI_FINAL: "FINAL",
-  THIRD_PLACE: null,
-  FINAL: null,
+type Slot = "home" | "away";
+type Link = { winner: [string, Slot]; loser?: [string, Slot] };
+
+// Exact official 2026 World Cup bracket. Match IDs are `ko-<ROUND>-<n>`, where n
+// is the chronological within-round number (matching FIFA's match numbering and
+// our seed). Each entry says where that match's WINNER goes (and, for the
+// semi-finals, where the LOSER goes — the third-place play-off).
+const BRACKET: Record<string, Link> = {
+  // Round of 32 → Round of 16
+  "ko-ROUND_OF_32-1": { winner: ["ko-ROUND_OF_16-1", "home"] },
+  "ko-ROUND_OF_32-3": { winner: ["ko-ROUND_OF_16-1", "away"] },
+  "ko-ROUND_OF_32-2": { winner: ["ko-ROUND_OF_16-2", "home"] },
+  "ko-ROUND_OF_32-5": { winner: ["ko-ROUND_OF_16-2", "away"] },
+  "ko-ROUND_OF_32-4": { winner: ["ko-ROUND_OF_16-3", "home"] },
+  "ko-ROUND_OF_32-6": { winner: ["ko-ROUND_OF_16-3", "away"] },
+  "ko-ROUND_OF_32-7": { winner: ["ko-ROUND_OF_16-4", "home"] },
+  "ko-ROUND_OF_32-8": { winner: ["ko-ROUND_OF_16-4", "away"] },
+  "ko-ROUND_OF_32-11": { winner: ["ko-ROUND_OF_16-5", "home"] },
+  "ko-ROUND_OF_32-12": { winner: ["ko-ROUND_OF_16-5", "away"] },
+  "ko-ROUND_OF_32-9": { winner: ["ko-ROUND_OF_16-6", "home"] },
+  "ko-ROUND_OF_32-10": { winner: ["ko-ROUND_OF_16-6", "away"] },
+  "ko-ROUND_OF_32-14": { winner: ["ko-ROUND_OF_16-7", "home"] },
+  "ko-ROUND_OF_32-16": { winner: ["ko-ROUND_OF_16-7", "away"] },
+  "ko-ROUND_OF_32-13": { winner: ["ko-ROUND_OF_16-8", "home"] },
+  "ko-ROUND_OF_32-15": { winner: ["ko-ROUND_OF_16-8", "away"] },
+  // Round of 16 → Quarter-finals
+  "ko-ROUND_OF_16-1": { winner: ["ko-QUARTER_FINAL-1", "home"] },
+  "ko-ROUND_OF_16-2": { winner: ["ko-QUARTER_FINAL-1", "away"] },
+  "ko-ROUND_OF_16-5": { winner: ["ko-QUARTER_FINAL-2", "home"] },
+  "ko-ROUND_OF_16-6": { winner: ["ko-QUARTER_FINAL-2", "away"] },
+  "ko-ROUND_OF_16-3": { winner: ["ko-QUARTER_FINAL-3", "home"] },
+  "ko-ROUND_OF_16-4": { winner: ["ko-QUARTER_FINAL-3", "away"] },
+  "ko-ROUND_OF_16-7": { winner: ["ko-QUARTER_FINAL-4", "home"] },
+  "ko-ROUND_OF_16-8": { winner: ["ko-QUARTER_FINAL-4", "away"] },
+  // Quarter-finals → Semi-finals
+  "ko-QUARTER_FINAL-1": { winner: ["ko-SEMI_FINAL-1", "home"] },
+  "ko-QUARTER_FINAL-2": { winner: ["ko-SEMI_FINAL-1", "away"] },
+  "ko-QUARTER_FINAL-3": { winner: ["ko-SEMI_FINAL-2", "home"] },
+  "ko-QUARTER_FINAL-4": { winner: ["ko-SEMI_FINAL-2", "away"] },
+  // Semi-finals → Final (winner) + Third-place play-off (loser)
+  "ko-SEMI_FINAL-1": { winner: ["ko-FINAL-1", "home"], loser: ["ko-THIRD_PLACE-1", "home"] },
+  "ko-SEMI_FINAL-2": { winner: ["ko-FINAL-1", "away"], loser: ["ko-THIRD_PLACE-1", "away"] },
 };
 
 /**
- * After a knockout result, place the winner into the correct next-round fixture.
- * Match IDs are deterministic: `ko-<ROUND>-<index>`. Match i feeds next-round
- * match ceil(i/2), home slot if i is odd else away. Semi-final losers drop into
- * the third-place match. Draws are skipped (a shootout winner is set manually).
+ * After a knockout result, place the winner (and SF loser) into the correct
+ * next fixture per the official 2026 bracket. Draws are skipped (a penalty
+ * shootout winner is assigned manually).
  */
 export async function advanceKnockoutWinner(matchId: string) {
   const m = await prisma.match.findUnique({ where: { id: matchId } });
@@ -30,26 +63,21 @@ export async function advanceKnockoutWinner(matchId: string) {
   if (m.homeScore === m.awayScore) return; // shootout → manual
   if (!m.homeTeamId || !m.awayTeamId) return;
 
+  const link = BRACKET[m.id];
+  if (!link) return;
+
   const homeWon = m.homeScore > m.awayScore;
   const winnerId = homeWon ? m.homeTeamId : m.awayTeamId;
   const loserId = homeWon ? m.awayTeamId : m.homeTeamId;
 
-  const parts = m.id.split("-"); // ["ko", "ROUND_OF_32", "3"]
-  const index = parseInt(parts[2] ?? "", 10);
-  if (Number.isNaN(index)) return;
+  const place = (target: string, slot: Slot, teamId: string) =>
+    prisma.match.updateMany({
+      where: { id: target },
+      data: slot === "home" ? { homeTeamId: teamId } : { awayTeamId: teamId },
+    });
 
-  const nextRound = NEXT_ROUND[m.round];
-  if (nextRound) {
-    const nextIndex = Math.ceil(index / 2);
-    const nextId = `ko-${nextRound}-${nextIndex}`;
-    const data = index % 2 === 1 ? { homeTeamId: winnerId } : { awayTeamId: winnerId };
-    await prisma.match.updateMany({ where: { id: nextId }, data });
-  }
-
-  if (m.round === "SEMI_FINAL") {
-    const data = index === 1 ? { homeTeamId: loserId } : { awayTeamId: loserId };
-    await prisma.match.updateMany({ where: { id: "ko-THIRD_PLACE-1" }, data });
-  }
+  await place(link.winner[0], link.winner[1], winnerId);
+  if (link.loser) await place(link.loser[0], link.loser[1], loserId);
 }
 
 /**

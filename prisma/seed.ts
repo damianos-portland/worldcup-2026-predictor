@@ -1,27 +1,9 @@
 import { PrismaClient, Phase, RoundType, MatchStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import {
-  TEAMS,
-  GROUPS,
-  ROUND_ROBIN,
-  KNOCKOUT_ROUNDS,
-} from "./tournament-data";
+import { TEAMS } from "./tournament-data";
+import { GROUP_FIXTURES, KNOCKOUT_FIXTURES } from "./schedule";
 
 const prisma = new PrismaClient();
-
-// Base date: tournament kicks off June 11, 2026
-function tournamentDate(dayOffset: number, hour = 18): Date {
-  const d = new Date(Date.UTC(2026, 5, 11, hour, 0, 0));
-  d.setUTCDate(d.getUTCDate() + dayOffset);
-  return d;
-}
-
-// Stable, deterministic match IDs so re-seeding UPDATES rows in place
-// (instead of delete + recreate) — this is what preserves user predictions.
-const groupMatchId = (group: string, md: number, fixture: number) =>
-  `grp-${group}-md${md + 1}-g${fixture + 1}`;
-const knockoutMatchId = (round: string, index: number) =>
-  `ko-${round}-${index + 1}`;
 
 async function main() {
   console.log("🌍  Seeding World Cup 2026 Predictor League (non-destructive)...");
@@ -70,77 +52,77 @@ async function main() {
   }
   console.log(`🏳️   Synced ${TEAMS.length} national teams + players`);
 
-  // ---- Group-stage fixtures (72) — upsert by deterministic ID ----
-  const matchdayDay = [0, 5, 11]; // MD1, MD2, MD3 day offsets
-  let groupMatchCount = 0;
-  for (let g = 0; g < GROUPS.length; g++) {
-    const group = GROUPS[g];
-    const groupTeams = TEAMS.filter((t) => t.group === group);
-    for (let md = 0; md < ROUND_ROBIN.length; md++) {
-      const fixtures = ROUND_ROBIN[md];
-      for (let f = 0; f < fixtures.length; f++) {
-        const [hi, ai] = fixtures[f];
-        const dayOffset = matchdayDay[md] + Math.floor(g / 3);
-        const hour = 13 + (((g % 3) * 3 + f) % 9);
-        const id = groupMatchId(group, md, f);
-        const data = {
-          round: RoundType.GROUP,
-          phase: Phase.GROUP,
-          group,
-          homeTeamId: teamIdByName.get(groupTeams[hi].name)!,
-          awayTeamId: teamIdByName.get(groupTeams[ai].name)!,
-          kickoff: tournamentDate(dayOffset, hour),
-          venue: `Group ${group} Stadium`,
-          matchday: md + 1,
-          // One Golden Match per group: the group's opening fixture.
-          isGolden: md === 0 && f === 0,
-        };
-        await prisma.match.upsert({
-          where: { id },
-          // Note: status/scores are intentionally NOT updated, so entered
-          // results (and their predictions) survive a re-seed.
-          update: data,
-          create: { id, status: MatchStatus.UPCOMING, ...data },
-        });
-        groupMatchCount++;
-      }
-    }
-  }
-  console.log(`⚽  Synced ${groupMatchCount} group-stage matches`);
+  const groupByName = new Map(TEAMS.map((t) => [t.name, t.group]));
+  const desiredIds = new Set<string>();
 
-  // ---- Knockout placeholders (32) — upsert by deterministic ID ----
+  // ---- Group-stage fixtures (real schedule) — upsert by deterministic ID ----
+  // One Golden Match per group: each group's earliest fixture (the list is in
+  // matchday/chronological order, so the first one seen per group is earliest).
+  const goldenGroupSeen = new Set<string>();
+  let groupMatchCount = 0;
+  for (let i = 0; i < GROUP_FIXTURES.length; i++) {
+    const fx = GROUP_FIXTURES[i];
+    const group = groupByName.get(fx.home);
+    if (!group) throw new Error(`Unknown team in schedule: ${fx.home}`);
+    const id = `g-${i + 1}`;
+    desiredIds.add(id);
+    const isGolden = !goldenGroupSeen.has(group);
+    goldenGroupSeen.add(group);
+    const data = {
+      round: RoundType.GROUP,
+      phase: Phase.GROUP,
+      group,
+      homeTeamId: teamIdByName.get(fx.home)!,
+      awayTeamId: teamIdByName.get(fx.away)!,
+      kickoff: new Date(fx.kickoff),
+      venue: fx.venue,
+      matchday: Math.floor(i / 24) + 1, // 0-23 MD1, 24-47 MD2, 48-71 MD3
+      isGolden,
+    };
+    await prisma.match.upsert({
+      where: { id },
+      update: data, // status/scores intentionally not touched
+      create: { id, status: MatchStatus.UPCOMING, ...data },
+    });
+    groupMatchCount++;
+  }
+  console.log(`⚽  Synced ${groupMatchCount} group-stage matches (official schedule)`);
+
+  // ---- Knockout fixtures (real dates/venues; teams TBD) ----
+  const roundIndex = new Map<string, number>();
   let knockoutCount = 0;
-  for (const r of KNOCKOUT_ROUNDS) {
-    for (let i = 0; i < r.count; i++) {
-      const id = knockoutMatchId(r.round, i);
-      await prisma.match.upsert({
-        where: { id },
-        // Don't overwrite home/away team — the admin assigns those as the
-        // bracket fills in. Only structure + golden flag are refreshed.
-        update: {
-          round: r.round as RoundType,
-          phase: Phase.KNOCKOUT,
-          slot: `${r.round.replaceAll("_", " ")} #${i + 1}`,
-          kickoff: tournamentDate(r.baseDay, 16 + (i % 4)),
-          venue: "Knockout Venue",
-          isGolden: r.round === "FINAL",
-        },
-        create: {
-          id,
-          round: r.round as RoundType,
-          phase: Phase.KNOCKOUT,
-          slot: `${r.round.replaceAll("_", " ")} #${i + 1}`,
-          kickoff: tournamentDate(r.baseDay, 16 + (i % 4)),
-          venue: "Knockout Venue",
-          status: MatchStatus.UPCOMING,
-          matchday: 1,
-          isGolden: r.round === "FINAL",
-        },
-      });
-      knockoutCount++;
-    }
+  for (const fx of KNOCKOUT_FIXTURES) {
+    const n = (roundIndex.get(fx.round) ?? 0) + 1;
+    roundIndex.set(fx.round, n);
+    const id = `ko-${fx.round}-${n}`;
+    desiredIds.add(id);
+    const data = {
+      round: fx.round as RoundType,
+      phase: Phase.KNOCKOUT,
+      slot: fx.slot,
+      kickoff: new Date(fx.kickoff),
+      venue: fx.venue,
+      isGolden: fx.round === "FINAL",
+    };
+    await prisma.match.upsert({
+      where: { id },
+      // Don't overwrite home/away team — the admin/worker fills the bracket.
+      update: data,
+      create: { id, status: MatchStatus.UPCOMING, matchday: 1, ...data },
+    });
+    knockoutCount++;
   }
   console.log(`🏆  Synced ${knockoutCount} knockout fixtures`);
+
+  // ---- Remove any stale matches from previous (incorrect) schedules ----
+  const stale = await prisma.match.findMany({
+    where: { id: { notIn: [...desiredIds] } },
+    select: { id: true },
+  });
+  if (stale.length) {
+    await prisma.match.deleteMany({ where: { id: { in: stale.map((m) => m.id) } } });
+    console.log(`🧹  Removed ${stale.length} stale fixtures from the old schedule`);
+  }
 
   // ---- Hall of Fame demo entries (only seed once, never duplicate) ----
   if ((await prisma.hallOfFame.count()) === 0) {

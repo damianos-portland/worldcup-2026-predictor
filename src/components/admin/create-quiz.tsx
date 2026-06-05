@@ -28,7 +28,7 @@ export function CreateQuiz({
     <div className="flex gap-2">
       <select value={key} onChange={(e) => setKey(e.target.value)}
         className="h-11 flex-1 rounded-xl border border-input bg-black/30 px-3 text-sm focus-visible:outline-none">
-        <option value="">Select a matchday (date)…</option>
+        <option value="">Select a group or round…</option>
         {available.map((m) => <option key={m.key} value={m.key}>{m.label} · {m.count} matches</option>)}
       </select>
       <button onClick={onCreate} disabled={pending || !key}

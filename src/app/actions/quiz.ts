@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/session";
 import { recalcAllLeagues } from "@/lib/results";
-import { matchdayLabel } from "@/lib/matchday";
+import { quizMatchdayLabel } from "@/lib/quiz-templates";
 
 // ---- Admin ----
 
@@ -15,7 +15,7 @@ export async function createQuiz(formData: FormData) {
   const existing = await prisma.quiz.findUnique({ where: { matchdayKey } });
   if (existing) return { error: "A quiz already exists for that matchday." };
   await prisma.quiz.create({
-    data: { matchdayKey, title: matchdayLabel(matchdayKey) + " Quiz" },
+    data: { matchdayKey, title: quizMatchdayLabel(matchdayKey) + " Quiz" },
   });
   revalidatePath("/admin/quiz");
   return { success: true };

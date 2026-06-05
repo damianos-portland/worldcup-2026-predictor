@@ -1,3 +1,24 @@
+import { ROUND_LABELS } from "@/lib/utils";
+
+// Quizzes are organised by GROUP in the group stage (12 groups × 6 matches) and
+// by ROUND in the knockouts — clearer for authoring than calendar days. (Note:
+// the game's Power Pick / Manager of the Matchday / H2H still use calendar days.)
+export function quizMatchdayKey(m: { phase: string; group: string | null; round: string }): string {
+  return m.phase === "GROUP" ? `GRP-${m.group}` : `KO-${m.round}`;
+}
+
+export function quizMatchdayLabel(key: string): string {
+  if (key.startsWith("GRP-")) return `Group ${key.slice(4)}`;
+  return ROUND_LABELS[key.slice(3)] ?? key.slice(3);
+}
+
+// Order for the create dropdown: Groups A–L, then knockout rounds.
+export const QUIZ_MATCHDAY_ORDER = [
+  ..."ABCDEFGHIJKL".split("").map((g) => `GRP-${g}`),
+  "KO-ROUND_OF_32", "KO-ROUND_OF_16", "KO-QUARTER_FINAL",
+  "KO-SEMI_FINAL", "KO-THIRD_PLACE", "KO-FINAL",
+];
+
 // Standard quiz question templates. Given a match (with team names + notable
 // players) each template auto-generates the question text and answer options,
 // so the admin just picks a match + a type instead of typing everything.

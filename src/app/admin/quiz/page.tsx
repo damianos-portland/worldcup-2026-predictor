@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { CreateQuiz } from "@/components/admin/create-quiz";
 import { QuizEditor } from "@/components/admin/quiz-editor";
 import { Card, CardContent } from "@/components/ui/card";
-import { matchdayKey, matchdayLabel } from "@/lib/matchday";
-import type { QuizMatch } from "@/lib/quiz-templates";
+import { quizMatchdayKey, quizMatchdayLabel, QUIZ_MATCHDAY_ORDER, type QuizMatch } from "@/lib/quiz-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -22,18 +21,18 @@ export default async function AdminQuizPage() {
     }),
   ]);
 
-  // Every matchday (calendar day) that has fixtures, for the create dropdown.
+  // Quiz matchdays = 12 groups (6 matches each) + knockout rounds.
   const dayMeta = new Map<string, number>();
-  for (const m of matches) dayMeta.set(matchdayKey(m), (dayMeta.get(matchdayKey(m)) ?? 0) + 1);
+  for (const m of matches) dayMeta.set(quizMatchdayKey(m), (dayMeta.get(quizMatchdayKey(m)) ?? 0) + 1);
   const allMatchdays = [...dayMeta.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, count]) => ({ key, label: matchdayLabel(key), count }));
+    .sort(([a], [b]) => QUIZ_MATCHDAY_ORDER.indexOf(a) - QUIZ_MATCHDAY_ORDER.indexOf(b))
+    .map(([key, count]) => ({ key, label: quizMatchdayLabel(key), count }));
 
-  // Group matches (that have both teams) by matchday for the question builder.
+  // Group matches (that have both teams) by quiz matchday for the question builder.
   const matchesByKey = new Map<string, QuizMatch[]>();
   for (const m of matches) {
     if (!m.homeTeam || !m.awayTeam) continue;
-    const key = matchdayKey(m);
+    const key = quizMatchdayKey(m);
     if (!matchesByKey.has(key)) matchesByKey.set(key, []);
     matchesByKey.get(key)!.push({
       id: m.id,
@@ -60,7 +59,7 @@ export default async function AdminQuizPage() {
             <Brain className="h-5 w-5 text-gold" /> Matchday Quizzes
           </h3>
           <p className="mb-4 text-xs text-muted-foreground">
-            Author questions per matchday (2–3 per match works well). Open it for answers,
+            One quiz per group (6 matches) or knockout round — 2 questions per match makes a tidy 10–12. Open it for answers,
             then set the correct answers after the games and hit <span className="text-gold">Grade</span>.
             Scoring scales with the number of questions: a perfect round = 5 pts, 60%+ scales 1–4, plus a Quiz Genius badge for 100%.
           </p>

@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getMembershipOrRedirect } from "@/lib/league-access";
-import { matchdayKey, matchdayLabel } from "@/lib/matchday";
+import { computeQuizMatchdays } from "@/lib/quiz-matchday";
 import { PowerPickSelector, type PPMatchday } from "@/components/power-pick-selector";
 
 export const dynamic = "force-dynamic";
@@ -18,22 +18,17 @@ export default async function PowerPickPage({ params }: { params: { id: string }
     prisma.prediction.findMany({ where: { membershipId: membership.id } }),
   ]);
   const predByMatch = new Map(predictions.map((p) => [p.matchId, p]));
+  const matchById = new Map(matches.map((m) => [m.id, m]));
 
-  // Group by matchday (calendar day); show matchdays that still have an upcoming match.
-  const byKey = new Map<string, typeof matches>();
-  for (const m of matches) {
-    const key = matchdayKey(m);
-    if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key)!.push(m);
-  }
+  // Same matchday buckets as the quizzes: chronological bunches of 4–8 matches.
+  const buckets = computeQuizMatchdays(matches.map((m) => ({ id: m.id, kickoff: m.kickoff, phase: m.phase })));
 
-  const matchdays: PPMatchday[] = [...byKey.entries()]
-    .filter(([, ms]) => ms.some((m) => m.status === "UPCOMING" && m.kickoff > now))
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, ms]) => ({
-      key,
-      label: matchdayLabel(key),
-      matches: ms
+  const matchdays: PPMatchday[] = buckets
+    .map((b) => ({
+      key: b.key,
+      label: b.label,
+      matches: b.matchIds
+        .map((id) => matchById.get(id)!)
         .filter((m) => m.homeTeam && m.awayTeam) // predictable fixtures only
         .map((m) => {
           const pred = predByMatch.get(m.id);
@@ -53,7 +48,8 @@ export default async function PowerPickPage({ params }: { params: { id: string }
           };
         }),
     }))
-    .filter((md) => md.matches.length > 0);
+    // Show buckets that still have an upcoming match (or where you've already picked).
+    .filter((md) => md.matches.some((m) => !m.locked || m.powerPick));
 
   return (
     <div className="space-y-5">
@@ -62,8 +58,9 @@ export default async function PowerPickPage({ params }: { params: { id: string }
           <Star className="h-5 w-5 text-gold" /> Power Pick
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Each matchday (a calendar day), boost <span className="text-gold">one</span> match by ×1.5.
-          You can only Power Pick a match you've predicted — make your predictions first, then choose your boost here.
+          Each matchday, boost <span className="text-gold">one</span> match by ×1.5. Matchdays are the
+          same chronological bunches as the quizzes. You can only Power Pick a match you've predicted —
+          make your predictions first, then choose your boost here.
         </p>
       </div>
       <PowerPickSelector leagueId={params.id} matchdays={matchdays} />

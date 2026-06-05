@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { matchdayKey } from "@/lib/matchday";
+import { computeQuizMatchdays } from "@/lib/quiz-matchday";
 
 async function memberOrThrow(leagueId: string) {
   const user = await requireUser();
@@ -115,16 +115,14 @@ export async function togglePowerPick(formData: FormData) {
   if (prediction.powerPick) {
     await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: false } });
   } else {
-    // Clear any existing Power Pick on the SAME matchday (US local date), then set this one.
-    const targetKey = matchdayKey(match);
-    const active = await prisma.prediction.findMany({
-      where: { membershipId: membership.id, powerPick: true },
-      include: { match: { select: { kickoff: true } } },
+    // One Power Pick per matchday bucket (same chronological grouping as quizzes).
+    const allMatches = await prisma.match.findMany({ select: { id: true, kickoff: true, phase: true } });
+    const buckets = computeQuizMatchdays(allMatches);
+    const bucketIds = buckets.find((b) => b.matchIds.includes(match.id))?.matchIds ?? [match.id];
+    await prisma.prediction.updateMany({
+      where: { membershipId: membership.id, powerPick: true, matchId: { in: bucketIds } },
+      data: { powerPick: false },
     });
-    const sameDayIds = active.filter((p) => matchdayKey(p.match) === targetKey).map((p) => p.id);
-    if (sameDayIds.length) {
-      await prisma.prediction.updateMany({ where: { id: { in: sameDayIds } }, data: { powerPick: false } });
-    }
     await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: true } });
   }
 

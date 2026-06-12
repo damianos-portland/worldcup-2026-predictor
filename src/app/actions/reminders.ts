@@ -86,7 +86,7 @@ export async function sendReminders(formData: FormData) {
   if (!leagueId) return { error: "Pick a league first." };
   if (!includePredictions && !includeQuiz) return { error: "Choose at least one reminder type." };
   if (!emailConfigured())
-    return { error: "Email isn't configured yet. Set RESEND_API_KEY (and EMAIL_FROM) in the environment and redeploy." };
+    return { error: "Email isn't configured yet. Set SMTP_USER, SMTP_PASS and EMAIL_FROM in the environment and redeploy." };
 
   const league = await prisma.league.findUnique({ where: { id: leagueId }, select: { name: true } });
   if (!league) return { error: "League not found." };

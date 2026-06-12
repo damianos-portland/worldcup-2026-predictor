@@ -72,8 +72,9 @@ export function ReminderSender({ leagues, emailReady }: { leagues: League[]; ema
           <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              Email isn't configured yet. Set <code className="text-amber-100">RESEND_API_KEY</code> (and{" "}
-              <code className="text-amber-100">EMAIL_FROM</code>) in the environment and redeploy to enable sending.
+              Email isn't configured yet. Set <code className="text-amber-100">SMTP_USER</code>,{" "}
+              <code className="text-amber-100">SMTP_PASS</code> and <code className="text-amber-100">EMAIL_FROM</code> in
+              the environment and redeploy to enable sending.
             </span>
           </div>
         )}

@@ -24,30 +24,38 @@ export default async function PowerPickPage({ params }: { params: { id: string }
   const buckets = computeQuizMatchdays(matches.map((m) => ({ id: m.id, kickoff: m.kickoff, phase: m.phase })));
 
   const matchdays: PPMatchday[] = buckets
-    .map((b) => ({
-      key: b.key,
-      label: b.label,
-      matches: b.matchIds
-        .map((id) => matchById.get(id)!)
-        .filter((m) => m.homeTeam && m.awayTeam) // predictable fixtures only
-        .map((m) => {
-          const pred = predByMatch.get(m.id);
-          return {
-            id: m.id,
-            homeName: m.homeTeam?.name,
-            homeCode: m.homeTeam?.code,
-            awayName: m.awayTeam?.name,
-            awayCode: m.awayTeam?.code,
-            slot: m.slot,
-            kickoff: m.kickoff.toISOString(),
-            isGolden: m.isGolden,
-            predicted: !!pred,
-            predictionText: pred ? `${pred.homeScore}-${pred.awayScore}` : null,
-            powerPick: pred?.powerPick ?? false,
-            locked: m.status !== "UPCOMING" || m.kickoff <= now,
-          };
-        }),
-    }))
+    .map((b) => {
+      // The whole matchday's Power Pick freezes once its first match kicks off,
+      // so every match in a started bucket is locked (mirrors togglePowerPick).
+      const firstKickoff = Math.min(
+        ...b.matchIds.map((id) => (matchById.get(id)?.kickoff ?? now).getTime())
+      );
+      const bucketLocked = firstKickoff <= now.getTime();
+      return {
+        key: b.key,
+        label: b.label,
+        matches: b.matchIds
+          .map((id) => matchById.get(id)!)
+          .filter((m) => m.homeTeam && m.awayTeam) // predictable fixtures only
+          .map((m) => {
+            const pred = predByMatch.get(m.id);
+            return {
+              id: m.id,
+              homeName: m.homeTeam?.name,
+              homeCode: m.homeTeam?.code,
+              awayName: m.awayTeam?.name,
+              awayCode: m.awayTeam?.code,
+              slot: m.slot,
+              kickoff: m.kickoff.toISOString(),
+              isGolden: m.isGolden,
+              predicted: !!pred,
+              predictionText: pred ? `${pred.homeScore}-${pred.awayScore}` : null,
+              powerPick: pred?.powerPick ?? false,
+              locked: bucketLocked,
+            };
+          }),
+      };
+    })
     // Show buckets that still have an upcoming match (or where you've already picked).
     .filter((md) => md.matches.some((m) => !m.locked || m.powerPick));
 

@@ -76,7 +76,7 @@ export function PowerPickSelector({ leagueId, matchdays }: { leagueId: string; m
               </div>
               <div className="grid gap-2">
                 {md.matches.map((m) => {
-                  const disabled = (m.locked && !m.powerPick) || (!m.predicted && !m.powerPick) || pendingId === m.id;
+                  const disabled = m.locked || (!m.predicted && !m.powerPick) || pendingId === m.id;
                   return (
                     <button
                       key={m.id}

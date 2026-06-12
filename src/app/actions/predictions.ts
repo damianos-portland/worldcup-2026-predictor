@@ -97,14 +97,27 @@ export async function togglePowerPick(formData: FormData) {
   const membership = await memberOrThrow(leagueId);
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match || match.status !== "UPCOMING" || match.kickoff <= new Date()) {
-    return { error: "Power Pick can only be set before kickoff." };
+  if (!match) return { error: "Match not found." };
+  if (match.status !== "UPCOMING") {
+    return { error: "Power Pick can only be set on an upcoming match." };
   }
   if (match.phase === "KNOCKOUT") {
     const league = await prisma.league.findUnique({ where: { id: leagueId } });
     if (league?.knockoutLocked) {
       return { error: "The knockout stage is locked — no more changes." };
     }
+  }
+
+  // The Power Pick locks for the WHOLE matchday bucket once its first match kicks
+  // off — otherwise you could wait for an early result, then move the ×1.5 boost
+  // onto a later game in the same matchday. Lock on the bucket's earliest kickoff.
+  const allMatches = await prisma.match.findMany({ select: { id: true, kickoff: true, phase: true } });
+  const buckets = computeQuizMatchdays(allMatches);
+  const bucketIds = buckets.find((b) => b.matchIds.includes(match.id))?.matchIds ?? [match.id];
+  const kickoffById = new Map(allMatches.map((m) => [m.id, m.kickoff]));
+  const firstKickoff = Math.min(...bucketIds.map((id) => (kickoffById.get(id) ?? match.kickoff).getTime()));
+  if (firstKickoff <= Date.now()) {
+    return { error: "This matchday's Power Pick locked when its first match kicked off." };
   }
 
   const prediction = await prisma.prediction.findUnique({
@@ -116,9 +129,6 @@ export async function togglePowerPick(formData: FormData) {
     await prisma.prediction.update({ where: { id: prediction.id }, data: { powerPick: false } });
   } else {
     // One Power Pick per matchday bucket (same chronological grouping as quizzes).
-    const allMatches = await prisma.match.findMany({ select: { id: true, kickoff: true, phase: true } });
-    const buckets = computeQuizMatchdays(allMatches);
-    const bucketIds = buckets.find((b) => b.matchIds.includes(match.id))?.matchIds ?? [match.id];
     await prisma.prediction.updateMany({
       where: { membershipId: membership.id, powerPick: true, matchId: { in: bucketIds } },
       data: { powerPick: false },

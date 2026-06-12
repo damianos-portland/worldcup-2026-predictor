@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ClipboardList, Globe2, Users, Brain, UserCog } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Globe2, Users, Brain, UserCog, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -12,6 +12,7 @@ const TABS = [
   { href: "/admin/tournament", label: "Tournament", icon: Globe2 },
   { href: "/admin/leagues", label: "Leagues", icon: Users },
   { href: "/admin/users", label: "Users", icon: UserCog },
+  { href: "/admin/reminders", label: "Reminders", icon: Mail },
 ];
 
 export function AdminNav() {

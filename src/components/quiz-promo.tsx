@@ -5,26 +5,19 @@ import { X, BarChart3, ArrowUpRight } from "lucide-react";
 
 // Cross-promo for the analytics companion site, shown on the quiz tab.
 const PROMO_URL = "https://wc2026-predictor-puce.vercel.app/";
-const DISMISS_KEY = "wc-quiz-analytics-promo-dismissed";
 
 export function QuizPromo() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (localStorage.getItem(DISMISS_KEY) === "1") return;
     // Slide in a moment after the page settles so it catches the eye.
+    // Dismissal is NOT remembered — it reappears on every visit/reload.
     const t = setTimeout(() => setShow(true), 600);
     return () => clearTimeout(t);
   }, []);
 
   function dismiss() {
     setShow(false);
-    try {
-      localStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      /* ignore */
-    }
   }
 
   if (!show) return null;

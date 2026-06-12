@@ -126,8 +126,8 @@ model Match {
   liveHomeScore  Int?
   liveAwayScore  Int?
   minute         String? // e.g. "67'", "HT"
-  sourceEventId  String? // external provider (Sofascore) numeric event id
-  sourceUrl      String? // Sofascore www match URL (used by the Apify transport)
+  sourceEventId  String? // external provider (ESPN) event id, set by worker:map
+  sourceUrl      String? // legacy: external match URL (unused by the ESPN worker)
   lastLiveUpdate DateTime?
 
   predictions Prediction[]

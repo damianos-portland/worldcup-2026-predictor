@@ -1,18 +1,9 @@
-// Pluggable live-data transport. SOFA_TRANSPORT=direct (raw Sofascore — works
-// from residential/local IPs) or =apify (via the Apify actor — works anywhere,
-// recommended for production). Both return the same normalized shape.
-import { getEvent, getIncidents } from "./sofascore";
-import { scrapeMatchUrls } from "./apify";
+// Live-data transport. Polls ESPN's open scoreboard API (no proxy, no Cloudflare)
+// and returns a normalized per-match update. ESPN groups fixtures by UTC date, so
+// we fetch the few dates our candidates fall on and match by ESPN event id.
+import { fetchScoreboard, datesAround, type EspnEvent, type EspnIncident } from "./espn";
 
-const TRANSPORT = process.env.SOFA_TRANSPORT || "direct";
-
-export type NormalizedIncident = {
-  type: string;
-  side: string;
-  player: string | null;
-  minute: string | null;
-  sourceKey: string;
-};
+export type NormalizedIncident = EspnIncident;
 
 export type MatchUpdate = {
   matchId: string;
@@ -24,81 +15,39 @@ export type MatchUpdate = {
   incidents: NormalizedIncident[];
 };
 
-// Sofascore incident → our MatchEvent (goals + cards only).
-function mapIncident(inc: any): { type: string; side: string; player: string | null; minute: string | null } | null {
-  const side = inc.isHome ? "HOME" : "AWAY";
-  const minute = inc.time != null ? `${inc.time}'` : null;
-  const player = inc.player?.name ?? inc.playerName ?? null;
-  if (inc.incidentType === "goal") {
-    let type = "GOAL";
-    if (inc.incidentClass === "ownGoal") type = "OWN_GOAL";
-    else if (inc.incidentClass === "penalty") type = "PENALTY";
-    return { type, side, player, minute };
-  }
-  if (inc.incidentType === "card") {
-    const type = inc.incidentClass === "red" || inc.incidentClass === "yellowRed" ? "RED_CARD" : "YELLOW_CARD";
-    return { type, side, player, minute };
-  }
-  return null;
-}
+type Candidate = { id: string; sourceEventId: string | null; kickoff: Date };
 
-function sourceKeyFor(inc: any): string {
-  const who = inc.player?.name ?? inc.playerName ?? "";
-  return `${inc.incidentType}-${inc.time ?? ""}-${inc.isHome ? "H" : "A"}-${who}`;
-}
-
-// Works for both the raw actor event ({status:{type}, homeScore:{current}}) and
-// the direct client's already-mapped SofaEvent ({statusType, homeScore}).
-function normalize(matchId: string, event: any, incidents: any[]): MatchUpdate {
-  const statusType = event?.status?.type ?? event?.statusType ?? null;
-  const homeScore = event?.homeScore?.current ?? event?.homeScore ?? null;
-  const awayScore = event?.awayScore?.current ?? event?.awayScore ?? null;
-  const minute = event?.status?.description ?? event?.statusDesc ?? null;
-
-  const mapped: NormalizedIncident[] = [];
-  for (const inc of incidents ?? []) {
-    const m = mapIncident(inc);
-    if (m) mapped.push({ ...m, sourceKey: sourceKeyFor(inc) });
-  }
-
+function toUpdate(matchId: string, ev: EspnEvent): MatchUpdate {
   return {
     matchId,
-    inProgress: statusType === "inprogress",
-    finished: statusType === "finished",
-    homeScore: typeof homeScore === "number" ? homeScore : null,
-    awayScore: typeof awayScore === "number" ? awayScore : null,
-    minute,
-    incidents: mapped,
+    inProgress: ev.state === "in",
+    finished: ev.state === "post" && ev.completed,
+    homeScore: ev.homeScore,
+    awayScore: ev.awayScore,
+    minute: ev.clock,
+    incidents: ev.incidents,
   };
 }
 
-type Candidate = { id: string; sourceEventId: string | null; sourceUrl: string | null };
-
 export async function pollMatches(matches: Candidate[]): Promise<MatchUpdate[]> {
-  if (TRANSPORT === "apify") {
-    const urls = matches.map((m) => m.sourceUrl).filter((u): u is string => !!u);
-    const items = await scrapeMatchUrls(urls);
-    const byId = new Map<string, any>();
-    for (const it of items) {
-      const ev = it?.data?.event;
-      if (ev?.id != null) byId.set(String(ev.id), it.data);
-    }
-    const out: MatchUpdate[] = [];
-    for (const m of matches) {
-      const d = m.sourceEventId ? byId.get(m.sourceEventId) : undefined;
-      if (d) out.push(normalize(m.id, d.event, d.incidents ?? []));
-    }
-    return out;
+  const mapped = matches.filter((m) => m.sourceEventId);
+  if (!mapped.length) return [];
+
+  // Collect the distinct UTC dates to query (kickoff ± 1 day), then one
+  // scoreboard call per date covers every fixture on it.
+  const dates = new Set<string>();
+  for (const m of mapped) for (const d of datesAround(m.kickoff)) dates.add(d);
+
+  const byEspnId = new Map<string, EspnEvent>();
+  for (const date of dates) {
+    const events = await fetchScoreboard(date).catch(() => [] as EspnEvent[]);
+    for (const ev of events) byEspnId.set(ev.id, ev);
   }
 
-  // direct (residential / local only)
   const out: MatchUpdate[] = [];
-  for (const m of matches) {
-    if (!m.sourceEventId) continue;
-    const ev = await getEvent(m.sourceEventId).catch(() => null);
-    if (!ev) continue;
-    const inc = ev.statusType === "inprogress" ? await getIncidents(m.sourceEventId).catch(() => []) : [];
-    out.push(normalize(m.id, ev, inc));
+  for (const m of mapped) {
+    const ev = byEspnId.get(m.sourceEventId!);
+    if (ev) out.push(toUpdate(m.id, ev));
   }
   return out;
 }

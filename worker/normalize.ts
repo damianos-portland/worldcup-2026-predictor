@@ -1,4 +1,4 @@
-// Normalise team names so our DB names line up with Sofascore's.
+// Normalise team names so our DB names line up with ESPN's.
 const ALIASES: Record<string, string> = {
   usa: "united states",
   "korea republic": "south korea",
@@ -10,6 +10,7 @@ const ALIASES: Record<string, string> = {
   "congo dr": "dr congo",
   "cote divoire": "ivory coast",
   "china pr": "china",
+  "bosnia herzegovina": "bosnia and herzegovina", // ESPN: "Bosnia-Herzegovina"
 };
 
 export function canon(name: string): string {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getMembershipOrRedirect } from "@/lib/league-access";
 import { scoreQuiz } from "@/lib/scoring";
 import { PlayerQuizTabs } from "@/components/player-quiz-tabs";
+import { QuizPromo } from "@/components/quiz-promo";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +95,8 @@ export default async function QuizPage({ params }: { params: { id: string } }) {
       ) : (
         <PlayerQuizTabs leagueId={params.id} quizzes={tabData} />
       )}
+
+      <QuizPromo />
     </div>
   );
 }

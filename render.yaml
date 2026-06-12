@@ -1,0 +1,24 @@
+# Render Blueprint — Live Center poller (background worker).
+# Deploy: Render Dashboard → New → Blueprint → pick this repo. Render reads this
+# file and creates the worker. Then set the two secret env vars (DATABASE_URL,
+# APIFY_TOKEN) in the dashboard — they're marked sync:false so they're never
+# committed. See worker/README.md for the full story.
+services:
+  - type: worker # always-on background process (no public port). NOT free — needs a paid instance.
+    name: wc-live-poller
+    runtime: node
+    plan: starter # smallest paid worker; bump only if you run many tournaments at once
+    region: frankfurt # closest Render region to Greece / European Neon
+    branch: main
+    autoDeploy: true
+    buildCommand: npm install # postinstall runs `prisma generate` for the Linux target
+    startCommand: npm run worker:poll
+    envVars:
+      - key: DATABASE_URL
+        sync: false # set in dashboard — same Neon connection string as the Vercel app
+      - key: SOFA_TRANSPORT
+        value: apify # datacenter-safe path; raw Sofascore is Cloudflare-403'd from Render
+      - key: APIFY_TOKEN
+        sync: false # set in dashboard — used by the azzouzana/sofascore-scraper-pro actor
+      - key: POLL_INTERVAL_MS
+        value: "25000" # 25s cadence; lower = more Apify usage

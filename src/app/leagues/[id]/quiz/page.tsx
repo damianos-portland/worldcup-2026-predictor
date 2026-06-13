@@ -2,6 +2,7 @@ import { Brain } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getMembershipOrRedirect } from "@/lib/league-access";
 import { scoreQuiz } from "@/lib/scoring";
+import { matchdayFirstKickoff } from "@/lib/quiz-matchday";
 import { PlayerQuizTabs } from "@/components/player-quiz-tabs";
 import { QuizPromo } from "@/components/quiz-promo";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,14 @@ export default async function QuizPage({ params }: { params: { id: string } }) {
 
   const myAnswers = await prisma.quizAnswer.findMany({ where: { membershipId: membership.id } });
   const myChoice = new Map(myAnswers.map((a) => [a.questionId, a.choiceIndex]));
+
+  // A quiz locks once the first match of its matchday kicks off.
+  const matches = await prisma.match.findMany({ select: { id: true, kickoff: true, phase: true } });
+  const nowMs = Date.now();
+  const isLocked = (matchdayKey: string) => {
+    const fk = matchdayFirstKickoff(matchdayKey, matches);
+    return fk != null && fk <= nowMs;
+  };
 
   // Quiz Champ (top correct in THIS league) for a graded quiz.
   async function quizChamp(quizId: string, questions: { id: string; correctIndex: number }[]) {
@@ -62,6 +71,7 @@ export default async function QuizPage({ params }: { params: { id: string } }) {
         id: quiz.id,
         title: quiz.title,
         isGraded: quiz.isGraded,
+        locked: isLocked(quiz.matchdayKey),
         questions: quiz.questions.map((q) => ({
           id: q.id,
           text: q.text,

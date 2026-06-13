@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, X, Trophy } from "lucide-react";
+import { Check, X, Trophy, Lock } from "lucide-react";
 import { QuizForm } from "@/components/quiz-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ type Quiz = {
   id: string;
   title: string;
   isGraded: boolean;
+  locked: boolean;
   questions: Question[];
   myAnswers: Record<string, number>;
   result?: { correct: number; total: number; points: number; champNames: string[]; champMax: number };
@@ -51,6 +52,8 @@ export function PlayerQuizTabs({ leagueId, quizzes }: { leagueId: string; quizze
                 )}
                 <Badge variant={q.result.points > 0 ? "success" : "secondary"}>You: {q.result.correct}/{q.result.total} · +{q.result.points} pts</Badge>
               </div>
+            ) : q.locked ? (
+              <Badge variant="secondary"><Lock className="h-3 w-3" /> Locked</Badge>
             ) : (
               <Badge variant="gold">Open</Badge>
             )}
@@ -72,6 +75,31 @@ export function PlayerQuizTabs({ leagueId, quizzes }: { leagueId: string; quizze
                             isCorrect ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
                               : isMine ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-white/10 text-muted-foreground")}>
                             {isCorrect && <Check className="h-3 w-3" />}{isMine && !isCorrect && <X className="h-3 w-3" />}{opt}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : q.locked ? (
+            <div className="space-y-2">
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" /> Answers locked — the matchday has kicked off.
+              </p>
+              {q.questions.map((question, qi) => {
+                const mine = q.myAnswers[question.id];
+                return (
+                  <div key={question.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-3">
+                    <div className="mb-2 text-sm font-medium"><span className="text-gold">{qi + 1}.</span> {question.text}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {question.options.map((opt, oi) => {
+                        const isMine = mine === oi;
+                        return (
+                          <span key={oi} className={cn("flex items-center gap-1 rounded-lg border px-2 py-1 text-xs",
+                            isMine ? "border-gold/50 bg-gold/15 text-gold" : "border-white/10 text-muted-foreground")}>
+                            {isMine && <Check className="h-3 w-3" />}{opt}
                           </span>
                         );
                       })}

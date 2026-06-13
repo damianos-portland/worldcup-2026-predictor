@@ -80,3 +80,17 @@ export function computeQuizMatchdays(matches: Min[]): QuizMatchday[] {
   const knockout = bucketPhase(matches.filter((m) => m.phase === "KNOCKOUT"));
   return [...group, ...knockout];
 }
+
+/**
+ * Kickoff time (ms) of the EARLIEST match in the matchday bucket a quiz belongs
+ * to — i.e. when that quiz should lock. Returns null if the key matches no bucket.
+ */
+export function matchdayFirstKickoff(matchdayKey: string, matches: Min[]): number | null {
+  const bucket = computeQuizMatchdays(matches).find((b) => b.key === matchdayKey);
+  if (!bucket) return null;
+  const byId = new Map(matches.map((m) => [m.id, m.kickoff]));
+  const times = bucket.matchIds
+    .map((id) => byId.get(id)?.getTime())
+    .filter((t): t is number => t != null);
+  return times.length ? Math.min(...times) : null;
+}

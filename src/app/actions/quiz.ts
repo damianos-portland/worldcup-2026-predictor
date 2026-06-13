@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireUser } from "@/lib/session";
 import { recalcAllLeagues } from "@/lib/results";
+import { matchdayFirstKickoff } from "@/lib/quiz-matchday";
 
 // ---- Admin ----
 
@@ -137,6 +138,14 @@ export async function submitQuizAnswer(formData: FormData) {
   if (!question) return { error: "Question not found." };
   if (!question.quiz.isOpen || question.quiz.isGraded) {
     return { error: "This quiz is closed." };
+  }
+
+  // Lock the quiz once the matchday's first match kicks off — otherwise you could
+  // change answers after seeing early results.
+  const matches = await prisma.match.findMany({ select: { id: true, kickoff: true, phase: true } });
+  const firstKickoff = matchdayFirstKickoff(question.quiz.matchdayKey, matches);
+  if (firstKickoff != null && firstKickoff <= Date.now()) {
+    return { error: "This quiz locked when the matchday's first match kicked off." };
   }
 
   await prisma.quizAnswer.upsert({

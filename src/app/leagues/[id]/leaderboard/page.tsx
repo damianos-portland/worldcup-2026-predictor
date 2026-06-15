@@ -4,7 +4,7 @@ import { getMembershipOrRedirect } from "@/lib/league-access";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flag } from "@/components/flag";
 import { SharePodium } from "@/components/share-podium";
-import { ExactScoresCell } from "@/components/leaderboard-exact-cell";
+import { ScoresCell } from "@/components/leaderboard-scores-cell";
 import { classNamesForMovement } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -28,21 +28,24 @@ export default async function LeaderboardPage({ params }: { params: { id: string
     },
   });
 
+  const byKickoff = (a: (typeof rows)[number]["predictions"][number], b: typeof a) =>
+    a.match.kickoff.getTime() - b.match.kickoff.getTime();
+  const toItem = (p: (typeof rows)[number]["predictions"][number]) => ({
+    home: p.match.homeTeam?.name ?? "TBD",
+    homeCode: p.match.homeTeam?.code ?? "",
+    away: p.match.awayTeam?.name ?? "TBD",
+    awayCode: p.match.awayTeam?.code ?? "",
+    predHs: p.homeScore,
+    predAs: p.awayScore,
+    resHs: p.match.homeScore ?? p.homeScore,
+    resAs: p.match.awayScore ?? p.awayScore,
+    powerPick: p.powerPick,
+  });
+
   const enriched = rows.map((r) => {
-    const exactPreds = r.predictions.filter((p) => p.isExact);
-    const outcome = r.predictions.filter((p) => p.isOutcome).length;
-    const exactItems = exactPreds
-      .sort((a, b) => a.match.kickoff.getTime() - b.match.kickoff.getTime())
-      .map((p) => ({
-        home: p.match.homeTeam?.name ?? "TBD",
-        homeCode: p.match.homeTeam?.code ?? "",
-        away: p.match.awayTeam?.name ?? "TBD",
-        awayCode: p.match.awayTeam?.code ?? "",
-        hs: p.homeScore,
-        as: p.awayScore,
-        powerPick: p.powerPick,
-      }));
-    return { ...r, exact: exactPreds.length, outcome, exactItems };
+    const exactItems = r.predictions.filter((p) => p.isExact).sort(byKickoff).map(toItem);
+    const outcomeItems = r.predictions.filter((p) => p.isOutcome).sort(byKickoff).map(toItem);
+    return { ...r, exact: exactItems.length, outcome: outcomeItems.length, exactItems, outcomeItems };
   });
 
   const podium = enriched.slice(0, 3);
@@ -144,9 +147,11 @@ export default async function LeaderboardPage({ params }: { params: { id: string
                       </td>
                       <td className="px-3 py-3 text-center font-display font-bold text-gold">{r.totalPoints}</td>
                       <td className="px-3 py-3 text-center">
-                        <ExactScoresCell count={r.exact} items={r.exactItems} />
+                        <ScoresCell count={r.exact} items={r.exactItems} variant="exact" />
                       </td>
-                      <td className="px-3 py-3 text-center">{r.outcome}</td>
+                      <td className="px-3 py-3 text-center">
+                        <ScoresCell count={r.outcome} items={r.outcomeItems} variant="outcome" />
+                      </td>
                       <td className="px-3 py-3 text-center font-semibold text-gold">{r._count.matchdayAwards || "–"}</td>
                       <td className="px-3 py-3">
                         {r.winnerPick ? (

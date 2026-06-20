@@ -32,7 +32,7 @@ export function ScoresCell({
   variant: "exact" | "outcome";
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; below: boolean } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; below: boolean; caretLeft: number } | null>(null);
   const ref = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
@@ -47,13 +47,13 @@ export function ScoresCell({
     const el = ref.current;
     if (!el || items.length === 0) return;
     const r = el.getBoundingClientRect();
-    const left = Math.max(
-      POPUP_W / 2 + 8,
-      Math.min(r.left + r.width / 2, window.innerWidth - POPUP_W / 2 - 8)
-    );
+    const centerX = r.left + r.width / 2; // the number's centre
+    const left = Math.max(POPUP_W / 2 + 8, Math.min(centerX, window.innerWidth - POPUP_W / 2 - 8));
+    // Caret tracks the number even when the popup is clamped to a screen edge.
+    const caretLeft = Math.max(16, Math.min(centerX - left + POPUP_W / 2, POPUP_W - 16));
     // Open downward unless the number is low on screen, then flip above.
     const below = r.bottom < window.innerHeight * 0.6;
-    setPos({ top: below ? r.bottom + GAP : r.top - GAP, left, below });
+    setPos({ top: below ? r.bottom + GAP : r.top - GAP, left, below, caretLeft });
     setOpen(true);
   }
 
@@ -68,7 +68,10 @@ export function ScoresCell({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    function onScroll() {
+    function onScroll(e: Event) {
+      // Scrolling the popup's own list must not close it — only outside scroll
+      // (the page/table) should, since the fixed popup can't follow that.
+      if (popRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
@@ -107,12 +110,24 @@ export function ScoresCell({
             left: pos.left,
             transform: `translateX(-50%)${pos.below ? "" : " translateY(-100%)"}`,
           }}
-          className="fixed z-50 max-h-[60vh] w-[300px] overflow-y-auto rounded-xl border border-gold/30 bg-pitch-900/95 p-3 text-left shadow-2xl shadow-black/50 ring-1 ring-gold/10 backdrop-blur"
+          className="fixed z-50 w-[300px] rounded-xl border border-gold/30 bg-pitch-900/95 p-3 text-left shadow-2xl shadow-black/50 ring-1 ring-gold/10 backdrop-blur"
         >
+          {/* caret pointing at the number */}
+          <span
+            aria-hidden
+            className="absolute h-2.5 w-2.5 rotate-45 border-gold/30 bg-pitch-900"
+            style={{
+              left: pos.caretLeft,
+              marginLeft: -5,
+              ...(pos.below
+                ? { top: -5, borderLeftWidth: 1, borderTopWidth: 1 }
+                : { bottom: -5, borderRightWidth: 1, borderBottomWidth: 1 }),
+            }}
+          />
           <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gold">
             <Icon className="h-3.5 w-3.5" /> {title} ({count})
           </div>
-          <ul className="space-y-1.5">
+          <ul className="max-h-[56vh] space-y-1.5 overflow-y-auto">
             {items.map((it, i) => {
               const inexact = it.predHs !== it.resHs || it.predAs !== it.resAs;
               return (

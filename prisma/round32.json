@@ -1,0 +1,18 @@
+{
+  "1":  { "_slot": "Runner-up A vs Runner-up B",     "home": "South Africa",            "away": "Canada" },
+  "2":  { "_slot": "Winner C vs Runner-up F",         "home": "Brazil",                  "away": "Japan" },
+  "3":  { "_slot": "Winner E vs 3rd A/B/C/D/F",       "home": "Germany",                 "away": "Paraguay" },
+  "4":  { "_slot": "Winner F vs Runner-up C",         "home": "Netherlands",             "away": "Morocco" },
+  "5":  { "_slot": "Runner-up E vs Runner-up I",      "home": "Ivory Coast",             "away": "Norway" },
+  "6":  { "_slot": "Winner I vs 3rd C/D/F/G/H",       "home": "France",                  "away": "Sweden" },
+  "7":  { "_slot": "Winner A vs 3rd C/E/F/H/I",       "home": "Mexico",                  "away": "Ecuador" },
+  "8":  { "_slot": "Winner L vs 3rd E/H/I/J/K",       "home": "England",                 "away": "DR Congo" },
+  "9":  { "_slot": "Winner G vs 3rd A/E/H/I/J",       "home": "Belgium",                 "away": "Senegal" },
+  "10": { "_slot": "Winner D vs 3rd B/E/F/I/J",       "home": "United States",           "away": "Bosnia and Herzegovina" },
+  "11": { "_slot": "Winner H vs Runner-up J",         "home": "Spain",                   "away": "Austria" },
+  "12": { "_slot": "Runner-up K vs Runner-up L",      "home": "Portugal",                "away": "Croatia" },
+  "13": { "_slot": "Winner B vs 3rd E/F/G/I/J",       "home": "Switzerland",             "away": "Algeria" },
+  "14": { "_slot": "Runner-up D vs Runner-up G",      "home": "Australia",               "away": "Egypt" },
+  "15": { "_slot": "Winner J vs Runner-up H",         "home": "Argentina",               "away": "Cape Verde" },
+  "16": { "_slot": "Winner K vs 3rd D/E/I/J/L",       "home": "Colombia",                "away": "Ghana" }
+}
